@@ -75,6 +75,12 @@ To serve the app at the root instead, add to `netlify.toml`:
 | `app/onboarding.js` | First-run tour and account setup |
 | `app/app.js` | Router, the ten views, all interactions |
 | `app/app.css` | App styling |
+| `manifest.webmanifest` | Makes the app installable |
+| `sw.js` | Service worker — offline support |
+| `404.html`, `offline.html` | Error pages in the site's own design |
+| `icon.svg`, `icon-*.png`, `og-image.png` | App icons and the social card |
+| `robots.txt` | Search engine directives |
+| `scripts/make-images.js` | Regenerates the icons and social card |
 | `netlify.toml` | Publish directory and headers |
 | `build-prototype.js` | Bundles the app into one HTML file |
 
@@ -82,6 +88,39 @@ Deploying needs only `index.html`, `styles.css`, `app.js`, the `app/` folder and
 `netlify.toml`. The rest is documentation and tooling.
 
 ---
+
+## Installable and offline
+
+The deployed site is a progressive web app.
+
+**Install it.** On a phone, open the site and choose *Add to Home Screen*; on
+desktop Chrome or Edge, use the install icon in the address bar. It then opens
+in its own window with no browser chrome, launching straight into the app.
+
+**It works with no connection.** A service worker (`sw.js`) precaches the shell
+on first visit, and your deadlines already live in the browser rather than on a
+server — so StudyFlow opens and works on a bus, in a basement, or on a plane.
+Navigations go to the network first, so a new deploy is picked up as soon as you
+are online again; assets come from cache, which is what makes it open instantly.
+
+When you change a precached file, bump `CACHE` in `sw.js`. The old cache is
+deleted on activate, so a deploy can never leave a half-old, half-new app
+behind.
+
+`offline.html` is shown only if you reach a page that was never cached.
+
+## Sharing and search
+
+`og-image.png` (1200×630) is generated from the site's own type and palette by
+`node scripts/make-images.js`, alongside the app icons — so the icon, the social
+card and the interface can never drift apart. Open Graph and Twitter card tags
+mean a shared link previews properly instead of appearing as a bare URL.
+
+`robots.txt` allows everything. A `Sitemap:` line is deliberately absent: entries
+must be absolute URLs, so add one once the site has its final domain.
+
+The app itself carries `noindex` — it is a personal workspace, not a page that
+should turn up in search results.
 
 ## The design system
 

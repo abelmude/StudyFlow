@@ -25,3 +25,27 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Frame-Options = "SAMEORIGIN"
     Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+# The service worker must not be cached, or a deploy cannot replace it.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json; charset=utf-8"
+
+# Icons and the social card are content-stable; a long cache is safe and makes
+# repeat visits and link previews instant.
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/icon.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
