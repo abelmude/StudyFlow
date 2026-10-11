@@ -6,7 +6,15 @@
 <title>StudyFlow — Dashboard</title>
 <meta name="description" content="The StudyFlow app: track IB assignments, IAs, the Extended Essay, CAS and TOK in one place.">
 <meta name="theme-color" content="#1b3a5c">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="StudyFlow">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+
 <link rel="stylesheet" href="app.css">
 <script>document.documentElement.classList.add('js');</script>
 </head>
@@ -141,5 +149,14 @@
 <script src="ical.js"></script>
 <script src="onboarding.js"></script>
 <script src="app.js"></script>
+<script>
+  // Registered after load so it never competes with first paint. The app keeps
+  // its data locally, so caching the shell makes it genuinely usable offline.
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () { /* unsupported or blocked */ });
+    });
+  }
+</script>
 </body>
 </html>

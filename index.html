@@ -5,8 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StudyFlow — The all-in-one organizer for IB students</title>
 <meta name="description" content="StudyFlow brings your assignments, IAs, Extended Essay, CAS and TOK deadlines into one clean app — with a smart dashboard, an AI study planner, calendars and progress tracking.">
-<meta name="theme-color" content="#4f46e5">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>">
+<meta name="theme-color" content="#1b3a5c">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>">
+<link rel="canonical" href="/">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StudyFlow">
+<meta property="og:title" content="StudyFlow — the IB deadline tracker for Diploma students">
+<meta property="og:description" content="Assignments, IAs, the Extended Essay, CAS and TOK in one queue, with a study planner built from the hours you are actually free. No account needed.">
+<meta property="og:image" content="/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="StudyFlow — the IB deadline tracker for Diploma students">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="StudyFlow — the IB deadline tracker for Diploma students">
+<meta name="twitter:description" content="Assignments, IAs, the Extended Essay, CAS and TOK in one queue. No account needed.">
+<meta name="twitter:image" content="/og-image.png">
+
 <link rel="stylesheet" href="styles.css">
 <script>
   // Set before first paint: scroll-reveal hides content, so it must only ever
@@ -466,5 +484,14 @@
 </footer>
 
 <script src="app.js"></script>
+<script>
+  // Registered after load so it never competes with first paint. The app keeps
+  // its data locally, so caching the shell makes it genuinely usable offline.
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () { /* unsupported or blocked */ });
+    });
+  }
+</script>
 </body>
 </html>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="StudyFlow">
+  <rect width="512" height="512" rx="96" fill="#1b3a5c"/>
+  <!-- An open book: the two halves of the DP, ruled like a timetable. -->
+  <g fill="none" stroke="#f2f5f4" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M118 150h74a52 52 0 0 1 52 52v176a40 40 0 0 0-40-40h-86Z"/>
+    <path d="M394 150h-74a52 52 0 0 0-52 52v176a40 40 0 0 1 40-40h86Z"/>
+  </g>
+  <g stroke="#8fb4d6" stroke-width="14" stroke-linecap="round" opacity=".85">
+    <path d="M310 212h56M310 258h56M310 304h34"/>
+  </g>
+</svg>
