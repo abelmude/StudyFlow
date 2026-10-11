@@ -192,7 +192,7 @@ Three things shape the copy, drawn from what the research actually supports:
   the stakes ends by pointing at the app.
 - **No invented proof.** StudyFlow has no users yet, so the page carries no
   testimonials, no logo wall and no performance claims. The figures on the page
-  are facts that are true by construction — 50 DP courses built in, 5 deadline
+  are facts that are true by construction — 53 DP courses built in, 5 deadline
   types, a 14-day planning horizon, 0 accounts required. When you have real
   users, relevant specifics will outperform anything generic here.
 
@@ -211,7 +211,7 @@ repeated after the persuasion rather than only at the very bottom.
 1. **A four-panel tour** of how StudyFlow works, each panel pairing the
    explanation with a small mock of the real thing. Skippable.
 2. **A choice** — set up your own diploma, or explore the example account.
-3. **Setup** — your name, subjects (all 50 DP courses, searchable and grouped by
+3. **Setup** — your name, subjects (all 53 DP courses, searchable and grouped by
    IB subject group), EE subject and word target, and the hours you are
    genuinely free each weekday.
 

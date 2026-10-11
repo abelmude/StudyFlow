@@ -83,9 +83,10 @@
     { group: 'Group 1 · Studies in Language & Literature', courses: [
       'English A: Literature', 'English A: Language & Literature',
       'Spanish A: Literature', 'Spanish A: Language & Literature',
+      'Portuguese A: Literature', 'Portuguese A: Language & Literature',
       'French A: Literature', 'French A: Language & Literature',
-      'German A: Language & Literature', 'Chinese A: Literature',
-      'Chinese A: Language & Literature'
+      'German A: Literature', 'German A: Language & Literature',
+      'Chinese A: Literature', 'Chinese A: Language & Literature'
     ] },
     { group: 'Group 2 · Language Acquisition', courses: [
       'Spanish B', 'French B', 'German B', 'Mandarin B', 'Japanese B',
