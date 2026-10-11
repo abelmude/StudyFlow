@@ -27,3 +27,8 @@ desktop.ini
 # Generated single-file prototype
 studyflow-prototype.html
 proto/
+
+# Written by scripts/write-config.js during the Netlify build. app/config.js is
+# committed as a blank stub on purpose (so the app runs with no backend) and is
+# overwritten at deploy time; version.json only exists once deployed.
+version.json

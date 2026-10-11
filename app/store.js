@@ -230,9 +230,21 @@
     return null;
   }
 
+  /* Anything that wants to know the data changed subscribes here. Every
+     mutation in this file funnels through save(), including the ones callers
+     never touch directly — creating an account, importing a calendar,
+     regenerating the plan — so this is the one place that sees all of them.
+     Wrapping SF.save from outside would miss every internal call. */
+  var watchers = [];
+  function onSave(fn) { watchers.push(fn); }
+
   function save() {
     if (!state) return;
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* quota / private mode */ }
+    for (var i = 0; i < watchers.length; i++) {
+      // A listener's failure must never cost the user their save.
+      try { watchers[i](state); } catch (e) { /* listener's problem */ }
+    }
   }
 
   /* Signing out hides the account and returns to the start screen. There is no
@@ -270,6 +282,40 @@
     state = null;
     setSignedOut(false);
     try { localStorage.removeItem(KEY); } catch (e) { /* private mode */ }
+  }
+
+  /**
+   * Replace everything with a document from somewhere else — in practice the
+   * copy held by the user's account on the server.
+   *
+   * Validated rather than trusted. The document has made a round trip through
+   * a database and could be from an older version of the app, so every field
+   * the rest of the code assumes exists is filled in here. A missing `blocks`
+   * array would otherwise throw on the first render of the planner, and the
+   * student would be looking at a broken app with no idea why.
+   */
+  function replaceState(doc) {
+    if (!doc || typeof doc !== 'object' || !doc.profile) return null;
+
+    state = {
+      profile: Object.assign({ name: '', demo: false, onboarded: true }, doc.profile),
+      subjects: Array.isArray(doc.subjects) ? doc.subjects : [],
+      tasks: Array.isArray(doc.tasks) ? doc.tasks : [],
+      cas: Array.isArray(doc.cas) ? doc.cas : [],
+      ee: Object.assign(
+        { subjectId: null, rq: '', words: 0, target: 4000, milestones: [], meetings: [] },
+        doc.ee || {}
+      ),
+      availability: Object.assign({}, DEFAULT_AVAILABILITY, doc.availability || {}),
+      blocks: Array.isArray(doc.blocks) ? doc.blocks : [],
+      settings: doc.settings || {}
+    };
+    if (!Array.isArray(state.ee.milestones)) state.ee.milestones = [];
+    if (!Array.isArray(state.ee.meetings)) state.ee.meetings = [];
+
+    setSignedOut(false);
+    save();
+    return state;
   }
 
   /* ---------- Deadlines needing a heads-up ----------
@@ -545,6 +591,7 @@
 
     get state() { return state; },
     save: save,
+    onSave: onSave,
     uid: uid,
 
     hasAccount: hasAccount,
@@ -564,6 +611,7 @@
     useExample: useExample,
     createAccount: createAccount,
     clearAccount: clearAccount,
+    replaceState: replaceState,
     removeSubject: removeSubject,
 
     iso: iso,

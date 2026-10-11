@@ -263,6 +263,17 @@
     form.reset();
   });
 
+  /* ---------- What this deployment actually offers ----------
+     Accounts exist only if a backend was configured at build time, so the page
+     reads the app's own config rather than making a claim that might be false
+     for this particular deploy. Elements marked data-when="local" are in the
+     markup unhidden, which keeps the page honest with JavaScript off: the
+     device-only route is always available. */
+  var accounts = !!(window.SF_CONFIG && SF_CONFIG.supabaseUrl && SF_CONFIG.supabaseAnonKey);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-when]'), function (el) {
+    el.hidden = (el.getAttribute('data-when') === 'accounts') !== accounts;
+  });
+
   /* ---------- Footer year ---------- */
   document.getElementById('year').textContent = new Date().getFullYear();
 })();

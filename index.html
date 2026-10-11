@@ -15,14 +15,14 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="StudyFlow">
 <meta property="og:title" content="StudyFlow — the IB deadline tracker for Diploma students">
-<meta property="og:description" content="Assignments, IAs, the Extended Essay, CAS and TOK in one queue, with a study planner built from the hours you are actually free. No account needed.">
+<meta property="og:description" content="Assignments, IAs, the Extended Essay, CAS and TOK in one queue, with a study planner built from the hours you are actually free. Free, offline-first, no trackers.">
 <meta property="og:image" content="/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="StudyFlow — the IB deadline tracker for Diploma students">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="StudyFlow — the IB deadline tracker for Diploma students">
-<meta name="twitter:description" content="Assignments, IAs, the Extended Essay, CAS and TOK in one queue. No account needed.">
+<meta name="twitter:description" content="Assignments, IAs, the Extended Essay, CAS and TOK in one queue. Free, offline-first, no trackers.">
 <meta name="twitter:image" content="/og-image.png">
 
 <link rel="stylesheet" href="styles.css">
@@ -90,9 +90,15 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
         </div>
+        <!-- Which of the first two lines is true depends on whether this
+             deployment has accounts configured, so app.js picks one from the
+             app's own config rather than the page claiming both. With no
+             JavaScript the device-only line shows, because that one is true
+             either way. -->
         <ul class="hero__ticks">
-          <li>No account, no sign-up</li>
-          <li>Your data stays in your browser</li>
+          <li data-when="accounts" hidden>A free account, or none at all — your choice</li>
+          <li data-when="local">No account, no sign-up</li>
+          <li>Your data stays yours — no ads, no trackers</li>
           <li>Works offline, on any device</li>
         </ul>
       </div>
@@ -152,7 +158,7 @@
       <div class="stat reveal"><b data-count="53">0</b><span>DP courses built in, across all six groups</span></div>
       <div class="stat reveal"><b data-count="5">0</b><span>Deadline types: assignments, IAs, EE, CAS, TOK</span></div>
       <div class="stat reveal"><b data-count="14" data-suffix="-day">0</b><span>Study plan built from your free hours</span></div>
-      <div class="stat reveal"><b data-count="0">0</b><span>Accounts needed — your data stays in your browser</span></div>
+      <div class="stat reveal"><b data-count="0">0</b><span>Trackers, ads or third-party scripts — the page makes no outside requests</span></div>
     </div>
   </section>
 
@@ -483,6 +489,9 @@
   </div>
 </footer>
 
+<!-- The app's generated config, so the page can describe what this
+     deployment actually offers instead of guessing. -->
+<script src="app/config.js"></script>
 <script src="app.js"></script>
 <script>
   // Registered after load so it never competes with first paint. The app keeps

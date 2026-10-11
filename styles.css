@@ -229,6 +229,9 @@ button, input { font: inherit; color: inherit; }
 
 .hero__ticks { display: flex; flex-wrap: wrap; gap: 18px; margin: 26px 0 0; padding: 0; list-style: none; }
 .hero__ticks li { font-size: .88rem; color: var(--faint); display: flex; align-items: center; gap: 7px; }
+/* An author `display` beats the browser's own rule for [hidden], so the two
+   deployment-dependent lines would both show without this. */
+.hero__ticks li[hidden] { display: none; }
 .hero__ticks li::before { content: "✓"; color: var(--teal); font-weight: 700; }
 
 /* ---------- App mockup ---------- */
