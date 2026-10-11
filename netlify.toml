@@ -1,0 +1,27 @@
+# Netlify configuration for StudyFlow.
+#
+# The site is plain HTML, CSS and JavaScript with no dependencies and no build
+# step, so there is nothing to compile — Netlify just serves the files.
+#
+#   /       the marketing page
+#   /app/   the StudyFlow app
+#
+# The app routes with the URL hash (#/dashboard, #/deadlines, …), which the
+# browser never sends to the server. That means no SPA catch-all redirect is
+# needed: every URL Netlify sees maps to a file that really exists.
+
+[build]
+  publish = "."
+  command = ""
+
+# Nothing here is fingerprinted, so a long cache would strand people on an old
+# version after a deploy. Revalidating keeps updates immediate while still
+# allowing 304s, which is the right trade for a site this small.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "SAMEORIGIN"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"

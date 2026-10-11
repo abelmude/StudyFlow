@@ -1,0 +1,29 @@
+# Build artifacts and archives — the site is the source, don't commit copies of it
+*.zip
+*.tar
+*.tar.gz
+dist/
+build/
+
+# Dependencies (the site itself has none; this covers local tooling)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs and local scratch
+*.log
+.cache/
+.tmp/
+
+# Generated single-file prototype
+studyflow-prototype.html
+proto/
