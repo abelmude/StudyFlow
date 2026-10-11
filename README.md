@@ -100,12 +100,18 @@ in its own window with no browser chrome, launching straight into the app.
 **It works with no connection.** A service worker (`sw.js`) precaches the shell
 on first visit, and your deadlines already live in the browser rather than on a
 server — so StudyFlow opens and works on a bus, in a basement, or on a plane.
-Navigations go to the network first, so a new deploy is picked up as soon as you
-are online again; assets come from cache, which is what makes it open instantly.
 
-When you change a precached file, bump `CACHE` in `sw.js`. The old cache is
-deleted on activate, so a deploy can never leave a half-old, half-new app
-behind.
+Navigations are network-first, so a new deploy is picked up as soon as you are
+online. Assets are stale-while-revalidate: the cached copy is served
+immediately, which is what makes the app open instantly, while a background
+fetch refreshes the cache for next time.
+
+Bump `CACHE` in `sw.js` when a precached file changes — the old cache is then
+deleted on activate, and the update lands at once. This used to be
+load-bearing: assets were cache-first and never consulted the network again, so
+a forgotten bump pinned everyone to an old build permanently. It is now a
+speed-up rather than a correctness requirement; a missed bump costs one stale
+load instead of stranding the app.
 
 `offline.html` is shown only if you reach a page that was never cached.
 

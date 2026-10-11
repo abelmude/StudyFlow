@@ -4,10 +4,14 @@
  * it has no reason to need the network once it has loaded. Precaching the shell
  * means it opens on a bus with no signal.
  *
- * Bump CACHE whenever a precached file changes; the old cache is deleted on
- * activate, so a deploy can never leave a half-old, half-new app behind.
+ * Bump CACHE when a precached file changes. That alone used to be load-bearing:
+ * assets were served cache-first and returned straight from the cache without
+ * ever consulting the network, so a forgotten bump pinned users to an old build
+ * permanently — which is exactly what happened once. Assets are now
+ * stale-while-revalidate, so a missed bump costs one stale load instead of
+ * stranding the app forever.
  */
-var CACHE = 'studyflow-v1';
+var CACHE = 'studyflow-v3';
 
 var SHELL = [
   '/',
@@ -74,18 +78,24 @@ self.addEventListener('fetch', function (e) {
     return;
   }
 
-  /* Assets: cache first — they are small, and this is what makes the app open
-     instantly and work with no connection. */
+  /* Assets: stale-while-revalidate. The cached copy is served immediately, so
+     the app still opens instantly and works offline, while a background fetch
+     refreshes the cache for next time. A deploy therefore lands on the next
+     load even if CACHE was not bumped. */
   e.respondWith(
     caches.match(req).then(function (hit) {
-      if (hit) return hit;
-      return fetch(req).then(function (res) {
+      var fresh = fetch(req).then(function (res) {
         if (res && res.status === 200 && res.type === 'basic') {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copy); });
         }
         return res;
+      }).catch(function () {
+        // Offline: the cached copy is the answer, if there is one.
+        return hit;
       });
+
+      return hit || fresh;
     })
   );
 });
