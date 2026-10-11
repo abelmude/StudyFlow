@@ -1,7 +1,8 @@
 # StudyFlow Instagram kit
 
-Everything in this folder is ready to upload. `preview-profile.png` shows how
-the finished profile will look.
+Everything in this folder is ready to upload. `preview-launch.png` shows the
+profile after the three launch posts, and `preview-profile.png` after the
+nine-post grid.
 
 ---
 
@@ -13,7 +14,7 @@ the finished profile will look.
 | **Name** | `StudyFlow · IB Organizer` (the Name field is searchable, so "IB Organizer" helps students find you) |
 | **Profile picture** | `profile-picture.png` |
 | **Category** | Education (switch to a free *Creator* or *Business* account to show it and get Insights) |
-| **Link** | Your live Netlify URL. Add a second link to the app (`/app/`) if you like |
+| **Link** | `https://make-study-flow.netlify.app/` |
 
 **Bio** (141 of 150 characters, paste as-is, line breaks included):
 
@@ -26,7 +27,68 @@ the finished profile will look.
 
 ---
 
-## 2. Story highlights
+## 2. Launch posts: post these three first
+
+Post them in this order. On the profile they read as one row, with the
+explainer on the left and "We've arrived" on the right. Links in captions
+aren't clickable on Instagram, so each caption points to the link in your bio.
+
+### Launch 1 · We've arrived
+`post-launch-1-we-have-arrived.png`
+
+```
+We've arrived. 📘
+
+StudyFlow is officially live: a free organizer built from the ground up for IB Diploma students.
+
+IAs, the Extended Essay, CAS, TOK and every assignment, finally in one calm place.
+
+Follow along, because IB life is about to get a lot more organised. ✨
+
+#IBDP #IBstudent #InternationalBaccalaureate #IBDiploma #studygram #newapp
+```
+
+### Launch 2 · We came for you, IB students
+`post-launch-2-made-for-ib-students.png`
+
+```
+We came for you, IB students. 🫵
+
+Generic to-do apps don't know what an IA is. They don't track your EE word count, your CAS learning outcomes or your TOK essay.
+
+StudyFlow does. Every part of it is built around the Diploma:
+📝 Internal Assessments
+📚 Extended Essay
+💙 CAS
+🌍 TOK
+📋 Assignments across all 50 DP courses
+
+Tag an IB friend who needs this 👇
+
+#IBDP #IBstudent #IBDiploma #ExtendedEssay #InternalAssessment #CAS #TOK
+```
+
+### Launch 3 · What is StudyFlow?
+`post-launch-3-what-is-studyflow.png`
+
+```
+So what is StudyFlow? Your whole IB, in one app. 📲
+
+01 · Smart dashboard: see what's due next and what's slipping, at a glance
+02 · Study planner: tell it your free hours and it builds your next 14 days
+03 · EE & CAS tracking: word count, milestones and learning outcomes
+04 · ManageBac import: bring your existing deadlines in one step
+
+It's free, runs in your browser, and needs no account.
+
+👉 make-study-flow.netlify.app (link in bio)
+
+#IBDP #IBstudent #studyplanner #studyapp #IBDiploma #ManageBac #productivity
+```
+
+---
+
+## 3. Story highlights
 
 Post each cover as a story, then add it to a highlight and choose it as the
 cover. The icon sits in the centre, so Instagram's circle crop fits it exactly.
@@ -43,7 +105,7 @@ cover. The icon sits in the centre, so Instagram's circle crop fits it exactly.
 
 ---
 
-## 3. The launch grid: post in this order
+## 4. The nine-post grid: post after the launch trio
 
 The nine posts alternate navy and light backgrounds, so the profile always
 shows a checkerboard. **Post them in number order** (01 first). Instagram puts
@@ -202,7 +264,7 @@ Link in bio. Tell us your subjects in the comments 👇
 
 ---
 
-## 4. Launch story
+## 5. Launch story
 
 `story-launch.png` (1080×1920). Post it on launch day and put a **Link
 sticker** over the dashed box at the bottom. Then add a poll sticker: *"How
@@ -211,7 +273,7 @@ Save it to the **Start here** highlight.
 
 ---
 
-## 5. Hashtags
+## 6. Hashtags
 
 Use 5 to 8 per post, mixing big and niche tags. Rotate them rather than
 pasting the same block every time.
@@ -223,7 +285,7 @@ pasting the same block every time.
 
 ---
 
-## 6. After launch: what to post
+## 7. After launch: what to post
 
 Aim for **3 posts a week** plus stories most days. Rotate four content types:
 
@@ -250,8 +312,8 @@ students are actively looking for help.
 
 ---
 
-## 7. Ground rules
+## 8. Ground rules
 
 - **Only claim what's true.** StudyFlow has no users yet, so no "thousands of students love it" and no made-up reviews. The posts here only state facts about the app.
 - **Reply to every comment** in the first weeks. Early engagement tells the algorithm the account is worth showing.
-- Instagram allows only one bio link, so point it at the marketing page, which links to the app.
+- Instagram allows only one bio link: `https://make-study-flow.netlify.app/`. The marketing page links on to the app.
