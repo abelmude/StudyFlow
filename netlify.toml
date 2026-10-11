@@ -10,9 +10,13 @@
 # browser never sends to the server. That means no SPA catch-all redirect is
 # needed: every URL Netlify sees maps to a file that really exists.
 
+# The one build step: write app/config.js and version.json from the
+# environment. See scripts/write-config.js — it is the only way the Supabase
+# project URL and anon key reach the browser without being committed, and the
+# only way the live site can say which commit it is running.
 [build]
   publish = "."
-  command = ""
+  command = "node scripts/write-config.js"
 
 # Nothing here is fingerprinted, so a long cache would strand people on an old
 # version after a deploy. Revalidating keeps updates immediate while still
@@ -49,3 +53,17 @@
   for = "/icon.svg"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+
+# version.json answers "which build is live?" — it must never be cached.
+[[headers]]
+  for = "/version.json"
+  [headers.values]
+    Cache-Control = "no-store"
+
+# config.js carries the account backend's address and the build stamp, and is
+# rewritten on every deploy, so a cached copy would point the app at an old
+# configuration.
+[[headers]]
+  for = "/app/config.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

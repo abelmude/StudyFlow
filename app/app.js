@@ -90,7 +90,9 @@
           value: f.value == null ? '' : f.value,
           min: f.min, max: f.max, step: f.step,
           required: f.required !== false,
-          placeholder: f.placeholder || ''
+          placeholder: f.placeholder || '',
+          // Lets a password manager offer to store a new password.
+          autocomplete: f.autocomplete || null
         });
       }
 
@@ -286,6 +288,14 @@
       h('div.card__head', h('h2', title), action || null),
       body
     );
+  }
+
+  /** Several nodes where one is expected. sectionCard takes a single body and
+      a head action, so a card with three stacked pieces passes them as one. */
+  function stack() {
+    var f = document.createDocumentFragment();
+    for (var i = 0; i < arguments.length; i++) DOM.append(f, arguments[i]);
+    return f;
   }
 
   /* ================= Views ================= */
@@ -1423,8 +1433,11 @@
       )
     ));
 
+    // Sign-in and syncing
+    frag.appendChild(signInCard());
+
     // Account actions
-    frag.appendChild(sectionCard('Account',
+    frag.appendChild(sectionCard('This device', stack(
       h('div.setacts',
         h('button.btn.btn--ghost', {
           type: 'button',
@@ -1436,7 +1449,8 @@
         h('button.btn.btn--ghost', {
           type: 'button',
           onclick: function () {
-            if (!confirm('Load the example account? This replaces your current data.')) return;
+            if (!confirm('Load the example account? This replaces what is currently on this device.' +
+              (signedInUser() ? '\n\nThe example is never uploaded, so your account copy is left alone.' : ''))) return;
             SF.useExample();
             location.hash = '#/dashboard';
             render(); toast('Example account loaded');
@@ -1446,17 +1460,202 @@
         h('button.btn.btn--danger', {
           type: 'button',
           onclick: function () {
-            if (!confirm('Start over? Everything currently stored will be deleted.')) return;
+            var who = signedInUser();
+            if (!confirm(who
+              ? 'Start over? This empties your diploma on this device and in your account. It cannot be undone.'
+              : 'Start over? Everything currently stored will be deleted.')) return;
             SF.clearAccount();
+            if (window.SFSync) SFSync.clearMark();
             boot();
           }
         }, 'Start over')
       ),
-      h('p.card__note', 'Everything is stored in this browser only — there is no account server and nothing is uploaded.')
-    ));
+      h('p.card__note', signedInUser()
+        ? 'Your diploma lives in your account and is copied to this browser so it works offline.'
+        : 'Everything is stored in this browser only — nothing is uploaded.')
+    )));
+
+    frag.appendChild(aboutCard());
 
     return frag;
   };
+
+  /* ---------- Settings · sign-in ---------- */
+
+  /** The sync badge, as a standalone node so it can be swapped in place. */
+  function syncPill() {
+    var s = window.SFSync && SFSync.enabled() ? SFSync.state() : { status: 'off' };
+    var word = SYNC_WORDS[s.status] || SYNC_WORDS.idle;
+    return h('span.syncpill.' + (word[1] || ''),
+      h('i.whoami__dot'),
+      h('span', word[0] || 'Not syncing'),
+      s.at && (s.status === 'saved' || s.status === 'idle')
+        ? h('em', ' · ' + new Date(s.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }))
+        : null
+    );
+  }
+
+  function signInCard() {
+    /* No backend configured. Only the person who deployed the site can fix
+       that, so this is a short factual note rather than an error. */
+    if (!accountsOn()) {
+      return sectionCard('Accounts', stack(
+        h('p.card__note',
+          'Email and password accounts are not switched on for this site, so StudyFlow is ' +
+          'running as a local tool: your diploma is saved in this browser and nowhere else.'),
+        h('p.card__note',
+          'To turn accounts on, set SUPABASE_URL and SUPABASE_ANON_KEY in the hosting ' +
+          'environment and redeploy. SETUP.md in the project has the steps.')
+      ));
+    }
+
+    var who = signedInUser();
+
+    if (!who) {
+      return sectionCard('Accounts', stack(
+        h('p.card__note',
+          'You are using StudyFlow without an account, so everything is saved in this ' +
+          'browser only. Clearing your browser data would erase it, and it will not appear ' +
+          'on your phone.'),
+        h('div.setacts',
+          h('button.btn.btn--primary', {
+            type: 'button',
+            onclick: function () {
+              localOnly(false);
+              /* Signing up from here keeps the diploma that is already on this
+                 device — reconcile uploads it, since the server has nothing. */
+              gate({ start: 'signup', allowLocal: false });
+            }
+          }, 'Create an account and sync this diploma'),
+          h('button.btn.btn--ghost', {
+            type: 'button',
+            onclick: function () { localOnly(false); gate({ start: 'login', allowLocal: false }); }
+          }, 'Log in to an existing account')
+        )
+      ));
+    }
+
+    return sectionCard('Your account', stack(
+      h('div.setgrid',
+        h('label.field',
+          h('span', 'Email'),
+          h('input', { type: 'email', value: who.email, readonly: true, 'aria-describedby': 'email-note' })
+        ),
+        h('div.field',
+          h('span', 'Syncing'),
+          h('div.field__static', syncPill())
+        )
+      ),
+      h('p.card__note', { id: 'email-note' },
+        'Your diploma is saved to this account, so logging in on another device brings it ' +
+        'with you. Changes save on this device first and upload a moment later, which is ' +
+        'why it keeps working with no signal.'),
+
+      h('div.setacts',
+        h('button.btn.btn--ghost', {
+          type: 'button',
+          onclick: function () {
+            if (!window.SFSync) return;
+            SFSync.flush().then(function () {
+              var s = SFSync.state();
+              toast(s.status === 'saved' ? 'Saved to your account'
+                : s.status === 'offline' ? 'Still offline — it will go up automatically'
+                : s.error || 'Could not reach your account');
+            });
+          }
+        }, 'Sync now'),
+
+        h('button.btn.btn--ghost', { type: 'button', onclick: changePassword }, 'Change password'),
+
+        h('button.btn.btn--danger', { type: 'button', onclick: deleteAccount }, 'Delete my account')
+      )
+    ));
+  }
+
+  function changePassword() {
+    openModal('Change password', [
+      { name: 'pw', label: 'New password', type: 'password', required: true,
+        hint: 'At least 8 characters.', autocomplete: 'new-password' },
+      { name: 'pw2', label: 'New password again', type: 'password', required: true,
+        autocomplete: 'new-password' }
+    ], function (v) {
+      if (String(v.pw).length < 8) { toast('Use at least 8 characters'); return false; }
+      if (v.pw !== v.pw2) { toast('Those two passwords are not the same'); return false; }
+      SFAuth.setPassword(v.pw).then(function () {
+        toast('Password changed');
+      }, function (err) { toast(err.message); });
+    }, 'Change password');
+  }
+
+  function deleteAccount() {
+    var who = signedInUser();
+    if (!who) return;
+    /* Typing the address is friction on purpose: this is the one action in the
+       app that destroys data the student cannot get back from anywhere. */
+    var typed = prompt(
+      'This permanently deletes your StudyFlow account and everything in it — ' +
+      'deadlines, CAS hours, your Extended Essay. It cannot be undone.\n\n' +
+      'Type your email address to confirm:');
+    if (typed === null) return;
+    if (typed.trim().toLowerCase() !== who.email.toLowerCase()) {
+      return toast('That did not match — nothing was deleted');
+    }
+    SFAuth.deleteAccount().then(function () {
+      SF.clearAccount();
+      if (window.SFSync) SFSync.clearMark();
+      localOnly(false);
+      location.hash = '';
+      boot();
+    });
+  }
+
+  /* ---------- Settings · about ----------
+     Which build is this? Without an answer to that, "the update is not live"
+     and "your browser is still showing you the old one" look identical — and
+     they have completely different fixes. */
+  function aboutCard() {
+    var cfg = window.SF_CONFIG || {};
+    var built = cfg.builtAt ? new Date(cfg.builtAt) : null;
+
+    return sectionCard('About this build', stack(
+      h('dl.about',
+        h('dt', 'Version'),
+        h('dd.mono', cfg.commit || 'local (unbuilt)'),
+        h('dt', 'Deployed'),
+        h('dd', built ? built.toLocaleString() : 'not deployed — running from files'),
+        h('dt', 'IB courses'),
+        h('dd', String(SF.SUBJECT_PRESETS.length)),
+        h('dt', 'Accounts'),
+        h('dd', accountsOn() ? 'enabled' : 'off — local storage only')
+      ),
+      h('div.setacts',
+        h('button.btn.btn--ghost', {
+          type: 'button',
+          onclick: function () {
+            /* Clearing the worker and its caches is the one fix for a browser
+               that is still serving an old build from before this was
+               fixable in-app. */
+            var jobs = [];
+            if ('serviceWorker' in navigator) {
+              jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+                return Promise.all(rs.map(function (r) { return r.unregister(); }));
+              }).catch(function () {}));
+            }
+            if (window.caches) {
+              jobs.push(caches.keys().then(function (ks) {
+                return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+              }).catch(function () {}));
+            }
+            Promise.all(jobs).then(function () { location.reload(); });
+          }
+        }, 'Force a fresh copy')
+      ),
+      h('p.card__note',
+        'If StudyFlow looks out of date — a subject missing, a feature you were told was ' +
+        'added — the version above is what is actually running. "Force a fresh copy" clears ' +
+        'the offline cache and reloads. Your data is not touched.')
+    ));
+  }
 
   /* ================= Router ================= */
 
@@ -1547,13 +1746,18 @@
     clear(foot);
 
     var name = SF.state.profile.name;
+    var who = signedInUser();
 
     foot.appendChild(h('div.whoami',
       SF.isDemo()
         ? [h('span.whoami__tag', 'Example account'),
            h('p.whoami__note', 'Sample data — explore freely.'),
            h('a.link', { href: '#/settings' }, 'Set up my own →')]
-        : h('p.whoami__name', name ? 'Signed in as ' + name : 'Your diploma'),
+        : who
+          ? [h('p.whoami__name', name ? 'Signed in as ' + name : 'Signed in'),
+             h('p.whoami__email', who.email),
+             syncLine()]
+          : h('p.whoami__name', name ? 'Signed in as ' + name : 'Your diploma'),
 
       h('button.logout', { type: 'button', onclick: logOut },
         icon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>'),
@@ -1562,27 +1766,114 @@
     ));
   }
 
+  /* ---------- Accounts ----------
+     All of this collapses to nothing when no backend is configured, which is
+     how the app keeps working as a purely local tool. */
+
+  function accountsOn() { return !!(window.SFAuth && SFAuth.enabled()); }
+  function signedInUser() { return accountsOn() && SFAuth.isSignedIn() ? SFAuth.user() : null; }
+
+  var SYNC_WORDS = {
+    syncing: ['Saving to your account…', 'is-busy'],
+    saved:   ['Saved to your account', 'is-ok'],
+    idle:    ['Up to date', 'is-ok'],
+    offline: ['Offline — saved on this device', 'is-wait'],
+    error:   ['Could not reach your account', 'is-bad'],
+    off:     ['', '']
+  };
+
+  /** One line in the sidebar saying whether the server has this edit yet. */
+  function syncLine() {
+    if (!window.SFSync || !SFSync.enabled()) return null;
+    var s = SFSync.state();
+    var word = SYNC_WORDS[s.status] || SYNC_WORDS.idle;
+    if (!word[0]) return null;
+    return h('p.whoami__sync.' + (word[1] || ''), { title: s.error || '' },
+      h('i.whoami__dot'), h('span', word[0]));
+  }
+
+  /* The status line is the only thing that moves when a sync finishes, so
+     refresh just that rather than re-rendering the sidebar. */
+  if (window.SFSync) {
+    SFSync.on(function () {
+      if (!SF.hasAccount()) return;
+      var old = document.querySelector('.whoami__sync');
+      var next = syncLine();
+      if (old && next) old.parentNode.replaceChild(next, old);
+      else if (!old && next) drawSideFoot();
+      var pill = document.querySelector('.syncpill');
+      if (pill) pill.parentNode.replaceChild(syncPill(), pill);
+    });
+  }
+
   /**
-   * Signing out returns to the start screen. With no server there is no
-   * session to end, so the account stays on this device and can be resumed —
-   * which the confirmation says plainly, since on a shared computer that
-   * matters. Erasing it is a separate action in Settings.
+   * Logging out.
+   *
+   * With an account, this is a real sign-out: the session is revoked and the
+   * local copy is removed, because the next person at this computer must not
+   * find someone else's deadlines — and nothing is lost, since the data is in
+   * the account.
+   *
+   * Without an account there is no session to end, so the data stays on the
+   * device and can be resumed. The confirmation says which of the two is
+   * happening, because on a shared computer the difference matters.
    */
   function logOut() {
     var demo = SF.isDemo();
+    var who = signedInUser();
+
     var msg = demo
       ? 'Leave the example account and go back to the start?'
-      : 'Log out and go back to the start screen?\n\n' +
-        'Your deadlines stay saved on this device, so you can pick up where you ' +
-        'left off. To remove them completely, use "Start over" in Settings.';
+      : who
+        ? 'Log out of ' + who.email + '?\n\n' +
+          (window.SFSync && SFSync.deviceChanged()
+            ? 'There are unsaved changes — we will try to upload them first.\n\n'
+            : '') +
+          'This removes your diploma from this browser. Everything stays in your ' +
+          'account, so logging back in anywhere brings it all back.'
+        : 'Log out and go back to the start screen?\n\n' +
+          'Your deadlines stay saved on this device, so you can pick up where you ' +
+          'left off. To remove them completely, use "Start over" in Settings.';
+
     if (!confirm(msg)) return;
 
-    SF.signOut();
-    location.hash = '';
-    boot();
+    if (!who) {
+      SF.signOut();
+      location.hash = '';
+      return boot();
+    }
+
+    /* Push whatever is outstanding before cutting the session, then clear the
+       device. A failed push must still let someone log out of a shared
+       computer, so the local wipe happens either way. */
+    var done = function () {
+      SFAuth.signOut().then(function () {
+        SF.clearAccount();
+        if (window.SFSync) SFSync.clearMark();
+        location.hash = '';
+        boot();
+      });
+    };
+    if (window.SFSync && SFSync.deviceChanged() && !demo) SFSync.flush().then(done, done);
+    else done();
   }
 
+  /* Tokens and link errors from a confirmation or reset email, as they look in
+     the URL. Matched against the hash, which is where the implicit flow puts
+     them. */
+  var AUTH_HASH = /(^|[#&])(access_token|error|error_code|error_description)=/;
+
   window.addEventListener('hashchange', function () {
+    /* An email link points at /app/, so if that page is already open in the
+       tab, following the link is a same-document navigation: the hash changes
+       and nothing re-runs. Without this, the tokens would sit unread in the
+       address bar and the student would be told to log in again by the very
+       screen that was supposed to let them in. */
+    if (accountsOn() && AUTH_HASH.test(location.hash || '')) {
+      closeSide();
+      return boot();
+    }
+
     closeSide();
     render();
     // Land at the top of the new view. focus() would otherwise scroll the
@@ -1593,21 +1884,101 @@
 
   /* ================= Boot ================= */
 
-  function boot() {
-    if (!SF.hasAccount()) {
-      var brandLink = document.querySelector('.side .brand');
-      var homeHref = brandLink ? brandLink.getAttribute('href') : null;
+  function homeHref() {
+    var brandLink = document.querySelector('.side .brand');
+    var href = brandLink ? brandLink.getAttribute('href') : null;
+    return href && href.indexOf('#') !== 0 ? href : null;
+  }
 
-      SFOnboard.run({
-        homeHref: homeHref && homeHref.indexOf('#') !== 0 ? homeHref : null,
-        onDone: function () {
-          location.hash = '#/dashboard';
-          render();
-        }
+  /** The tour and setup wizard — reached once there is somebody to set up for. */
+  function runSetup() {
+    SFOnboard.run({
+      homeHref: homeHref(),
+      presetName: (signedInUser() || {}).name || '',
+      onDone: function () {
+        location.hash = '#/dashboard';
+        render();
+      }
+    });
+  }
+
+  /** The sign-in gate. Only ever shown when a backend is actually configured. */
+  function gate(o) {
+    o = o || {};
+    o.homeHref = homeHref();
+    /* Working offline with no account yet is a dead end, so the escape hatch
+       stays available — but it is secondary, not the headline. */
+    o.allowLocal = o.allowLocal !== false;
+    o.onDone = function (res) {
+      if (res.syncBroken) toast('Signed in, but syncing is not set up yet');
+      if (res.local) { localOnly(true); return afterAccount(); }
+      afterAccount();
+    };
+    SFAuthView.run(o);
+  }
+
+  /* Someone who chose "this device only" should not be asked again on every
+     load. Recorded separately from the account session, since it is a
+     preference rather than a credential. */
+  var LOCAL_KEY = 'studyflow-local-only';
+  function localOnly(set) {
+    try {
+      if (set === undefined) return localStorage.getItem(LOCAL_KEY) === '1';
+      if (set) localStorage.setItem(LOCAL_KEY, '1');
+      else localStorage.removeItem(LOCAL_KEY);
+    } catch (e) { /* private mode */ }
+    return !!set;
+  }
+
+  /** Signed in (or deliberately local): into the app, or into setup. */
+  function afterAccount() {
+    if (SF.hasAccount()) return render();
+    if (SF.isSignedOut()) {
+      /* A local account is parked on this device — offer it back. */
+      return SFOnboard.run({
+        homeHref: homeHref(),
+        onDone: function () { location.hash = '#/dashboard'; render(); }
       });
-      return;
     }
-    render();
+    runSetup();
+  }
+
+  function boot() {
+    if (!accountsOn()) {
+      /* No backend configured: exactly the behaviour the app has always had. */
+      if (!SF.hasAccount()) return runSetup();
+      return render();
+    }
+
+    /* A confirmation or password-reset link lands with its tokens in the URL
+       fragment — the same place the router lives. Consume it before anything
+       reads the hash. */
+    Promise.resolve(SFAuth.consumeUrl()).then(function (link) {
+      if (link && link.type === 'recovery') return gate({ start: 'recovery', allowLocal: false });
+      if (link && link.type === 'error') return gate({ start: 'login', error: link.message });
+      if (link && link.type === 'confirmed') toast('Email confirmed — you are signed in');
+
+      if (!SFAuth.isSignedIn()) {
+        /* Not signed in. Someone who opted out of accounts, or who has local
+           data from before accounts existed, carries on locally. */
+        if (localOnly() || SF.hasAccount()) return afterAccount();
+        return gate({ start: SF.hasSavedAccount() ? 'login' : 'choose' });
+      }
+
+      /* The local "logged out but data still here" flag belongs to the
+         no-account world. Being signed in supersedes it. */
+      if (SF.isSignedOut()) SF.resumeAccount();
+
+      /* Signed in: get the account's copy before drawing anything, so the app
+         never shows stale data and then swaps it underneath the student. */
+      return SFSync.reconcile().then(function (res) {
+        if (res.action === 'conflict') {
+          return gate({ start: 'conflict', remote: res.remote, summary: res.summary, allowLocal: false });
+        }
+        if (res.action === 'error') toast('Signed in — but your account could not be reached');
+        afterAccount();
+      });
+    });
   }
 
   // Small surface for tests and benchmarks; the app itself never reads it.

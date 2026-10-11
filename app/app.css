@@ -878,6 +878,128 @@ body.is-onboarding .shell { display: none; }
 .onb__skip { color: var(--faint); }
 .onb__skip:hover { color: var(--text); }
 
+/* ---------- Accounts ----------
+   The sign-in gate borrows the onboarding overlay's chrome, so there is only
+   one first-run surface to look at and to maintain. These rules cover what is
+   specific to it: forms, banners and the conflict chooser. */
+
+.auth__box { width: min(540px, 100%); }
+.auth .onb__body { gap: 16px; }
+
+.auth__form { display: grid; gap: 14px; margin-top: 4px; }
+.auth__field { max-width: none; }
+.auth__hint { font-size: .75rem; color: var(--faint); font-style: normal; }
+.auth__row { display: flex; justify-content: flex-end; margin-top: -4px; }
+.auth__row .link { font-size: .82rem; }
+.auth__submit { margin-top: 4px; }
+.auth__submit .btn { width: 100%; justify-content: center; }
+
+.auth__acts { display: grid; gap: 10px; width: min(340px, 100%); margin-top: 6px; }
+.auth__acts .btn { justify-content: center; }
+
+.auth__alt {
+  display: grid; gap: 6px; justify-items: center; margin-top: 18px;
+  padding-top: 18px; border-top: 1px solid var(--line); width: 100%;
+}
+.auth__altnote { font-size: .78rem; color: var(--faint); max-width: 44ch; text-align: center; }
+
+.auth__foot { font-size: .86rem; color: var(--muted); }
+.auth__foot .link { font-size: inherit; }
+.auth__small { font-size: .8rem; color: var(--faint); max-width: 48ch; }
+.onb__body--center .auth__small { margin-inline: auto; }
+.auth__legal {
+  font-size: .76rem; color: var(--faint); line-height: 1.55;
+  padding-top: 12px; border-top: 1px solid var(--line);
+}
+
+/* Banners. The error gets the status red; nothing else on this screen does. */
+.auth__error, .auth__notice {
+  display: flex; align-items: flex-start; gap: 9px; text-align: left;
+  padding: 11px 13px; border-radius: var(--r-sm);
+  font-size: .86rem; line-height: 1.5; width: 100%;
+}
+.auth__error {
+  background: color-mix(in srgb, var(--red) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
+  color: var(--red);
+}
+.auth__error svg { width: 17px; height: 17px; flex: none; margin-top: 1px; }
+.auth__notice {
+  background: var(--accent-soft); border: 1px solid var(--line); color: var(--muted);
+}
+
+.auth__envelope {
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid var(--line);
+}
+.auth__envelope svg { width: 26px; height: 26px; }
+
+.auth__spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid var(--line); border-top-color: var(--accent);
+  animation: sf-spin .8s linear infinite;
+}
+@keyframes sf-spin { to { transform: rotate(360deg); } }
+
+.btn.is-busy { opacity: .7; cursor: progress; }
+
+.auth__choices { display: grid; gap: 12px; margin-top: 6px; }
+.auth__choices .onb__choice { gap: 6px; }
+.auth__choicemeta {
+  font-family: var(--mono); font-size: .76rem; color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Sync status ----------
+   A dot and three words. Colour repeats what the words already say, so the
+   state is never carried by colour alone. */
+
+.whoami__email {
+  font-size: .74rem; color: var(--faint); font-family: var(--mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.whoami__sync, .syncpill {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .74rem; color: var(--faint);
+}
+.syncpill { font-size: .84rem; }
+.syncpill em { font-style: normal; font-variant-numeric: tabular-nums; }
+.whoami__dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--line-strong);
+}
+.is-ok .whoami__dot { background: var(--clear); }
+.is-busy .whoami__dot { background: var(--accent); animation: sf-pulse 1.2s ease-in-out infinite; }
+.is-wait .whoami__dot { background: var(--soon); }
+.is-bad .whoami__dot { background: var(--late); }
+.whoami__sync.is-bad, .syncpill.is-bad { color: var(--late); }
+.whoami__sync.is-wait, .syncpill.is-wait { color: var(--soon); }
+@keyframes sf-pulse { 50% { opacity: .35; } }
+
+.field__static { display: flex; align-items: center; min-height: 40px; }
+.field input[readonly] { background: var(--surface-2); color: var(--muted); }
+
+/* ---------- About ---------- */
+.about {
+  display: grid; grid-template-columns: auto 1fr; gap: 7px 18px;
+  font-size: .86rem; align-items: baseline;
+}
+.about dt { color: var(--faint); font-weight: 600; }
+.about dd { color: var(--text); }
+.about dd.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- "A new version is ready" ----------
+   Sits above the toast. An update the student is never told about is
+   indistinguishable from an update that never shipped. */
+.swbar {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  z-index: 420; display: flex; align-items: center; gap: 14px;
+  max-width: calc(100vw - 32px);
+  padding: 11px 12px 11px 16px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-lg); font-size: .88rem; color: var(--text);
+}
+.swbar[hidden] { display: none; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .tiles { grid-template-columns: repeat(2, 1fr); }
@@ -917,6 +1039,8 @@ body.is-onboarding .shell { display: none; }
   .row__right { width: 100%; padding-left: 35px; }
   .avail { grid-template-columns: repeat(3, 1fr); }
   .eehead__ring { margin-inline: auto; }
+  .auth__acts { width: 100%; }
+  .swbar { left: 16px; right: 16px; transform: none; max-width: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -144,10 +144,22 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<div class="swbar" id="sw-update" role="status" hidden>
+  <span>A newer version of StudyFlow is ready.</span>
+  <button class="btn btn--primary btn--sm" id="sw-update-go" type="button">Reload</button>
+</div>
+
+<!-- config.js is generated at deploy time and carries the account backend's
+     address plus the build's commit. Everything after it may read SF_CONFIG,
+     so it loads first. -->
+<script src="config.js"></script>
 <script src="dom.js"></script>
 <script src="store.js"></script>
+<script src="auth.js"></script>
+<script src="sync.js"></script>
 <script src="ical.js"></script>
 <script src="onboarding.js"></script>
+<script src="authview.js"></script>
 <script src="app.js"></script>
 <script>
   // Registered after load so it never competes with first paint. The app keeps
@@ -156,7 +168,26 @@
     addEventListener('load', function () {
       navigator.serviceWorker.register('/sw.js').catch(function () { /* unsupported or blocked */ });
     });
+
+    // The worker calls skipWaiting() and clients.claim(), so a new build takes
+    // over this page as soon as it installs — but the scripts and styles this
+    // page is already running came from the old one. Saying so is the whole
+    // difference between "the update never shipped" and "you have not reloaded
+    // yet", which from inside the app used to look identical.
+    var hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      // On a first-ever visit there is nothing stale to warn about: this page
+      // came from the network a moment ago.
+      if (!hadController) { hadController = true; return; }
+      var bar = document.getElementById('sw-update');
+      if (bar) bar.hidden = false;
+    });
   }
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest || !e.target.closest('#sw-update-go')) return;
+    location.reload();
+  });
 </script>
 </body>
 </html>

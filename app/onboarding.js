@@ -107,7 +107,8 @@
 
   function freshDraft() {
     return {
-      name: '',
+      /* An account already knows the student's name — asking twice is noise. */
+      name: (opts && opts.presetName) || '',
       subjects: [],
       eeSubjectIndex: '',
       rq: '',
@@ -124,6 +125,12 @@
     // A replay from Settings shows the tour only; first run continues into setup.
     flow = ['welcome'].concat(TOUR.map(function (t) { return 'tour:' + t.key; }));
     if (!opts.tourOnly) flow.push('choose', 'name', 'subjects', 'ee', 'hours', 'done');
+
+    /* The sign-in gate uses the same overlay slot, and handing over from it
+       means replacing it rather than covering it. */
+    Array.prototype.forEach.call(document.querySelectorAll('.onb'), function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
 
     overlay = h('div.onb', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Getting started' });
     document.body.appendChild(overlay);

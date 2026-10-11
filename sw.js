@@ -4,14 +4,21 @@
  * it has no reason to need the network once it has loaded. Precaching the shell
  * means it opens on a bus with no signal.
  *
- * Bump CACHE when a precached file changes. That alone used to be load-bearing:
- * assets were served cache-first and returned straight from the cache without
- * ever consulting the network, so a forgotten bump pinned users to an old build
- * permanently — which is exactly what happened once. Assets are now
- * stale-while-revalidate, so a missed bump costs one stale load instead of
- * stranding the app forever.
+ * CACHE must change whenever a precached file does, or the stale entry survives
+ * activate and keeps being served. Bumping it by hand was load-bearing and
+ * easy to forget — forgetting it once pinned everyone to an old build and cost
+ * a day of looking for a deploy that had worked all along. Two things now stop
+ * that happening again:
+ *
+ *   1. scripts/write-config.js appends the deployed commit to this name at
+ *      build time, so every deploy gets a fresh cache automatically.
+ *   2. Assets are stale-while-revalidate rather than cache-first, so even an
+ *      unstamped build (a local checkout) self-corrects after one load instead
+ *      of being stuck forever.
+ *
+ * Bump the number below only when the cache layout itself changes.
  */
-var CACHE = 'studyflow-v3';
+var CACHE = 'studyflow-v4';
 
 var SHELL = [
   '/',
@@ -21,10 +28,14 @@ var SHELL = [
   '/app/',
   '/app/index.html',
   '/app/app.css',
+  '/app/config.js',
   '/app/dom.js',
   '/app/store.js',
+  '/app/auth.js',
+  '/app/sync.js',
   '/app/ical.js',
   '/app/onboarding.js',
+  '/app/authview.js',
   '/app/app.js',
   '/manifest.webmanifest',
   '/icon-192.png',
@@ -58,7 +69,14 @@ self.addEventListener('fetch', function (e) {
   if (req.method !== 'GET') return;
 
   var url = new URL(req.url);
+  /* Anything off-origin — the account provider above all — goes straight to
+     the network. Caching an authenticated API response here would be both
+     wrong and a way to serve one person's data to the next. */
   if (url.origin !== self.location.origin) return;
+
+  /* version.json exists to answer "which build is live?". An answer from cache
+     would defeat the entire point of asking. */
+  if (url.pathname === '/version.json') return;
 
   /* Navigations: network first, so a deploy is picked up as soon as the user is
      online, falling back to the cached page (then a plain offline notice). */

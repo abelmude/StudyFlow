@@ -15,8 +15,13 @@ const read = f => fs.readFileSync(path.join(APP, f), 'utf8');
 
 const shell = read('index.html');
 const css = read('app.css');
-// Order matters: dom defines the helpers, store the data, the rest consume both.
-const scripts = ['dom.js', 'store.js', 'ical.js', 'onboarding.js', 'app.js']
+/* Order matters: config first (everything may read SF_CONFIG), then dom for
+   the helpers, store for the data, auth and sync before the views that use
+   them. A single-file bundle has no deploy step to fill config.js in, so
+   accounts are simply off in a prototype — which is correct: the whole point
+   of the one-file build is that it runs from a file:// URL with no backend. */
+const scripts = ['config.js', 'dom.js', 'store.js', 'auth.js', 'sync.js',
+                 'ical.js', 'onboarding.js', 'authview.js', 'app.js']
   .map(f => ({ f, src: read(f) }));
 
 const bodyMatch = shell.match(/<body[^>]*>([\s\S]*)<\/body>/i);
