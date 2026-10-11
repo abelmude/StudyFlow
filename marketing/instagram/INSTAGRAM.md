@@ -1,8 +1,7 @@
 # StudyFlow Instagram kit
 
-Everything in this folder is ready to upload. `preview-launch.png` shows the
-profile after the three launch posts, and `preview-profile.png` after the
-nine-post grid.
+Everything in this folder is ready to upload. `preview-profile.png` shows the
+nine-post designed grid.
 
 ---
 
@@ -29,62 +28,64 @@ nine-post grid.
 
 ## 2. Launch posts: post these three first
 
-Post them in this order. On the profile they read as one row, with the
-explainer on the left and "We've arrived" on the right. Links in captions
-aren't clickable on Instagram, so each caption points to the link in your bio.
+Written in your own voice as the IB student who built StudyFlow, and built
+around real screenshots of the app rather than designed graphics. That's
+what makes them feel human. Post them in this order. **Edit any line that
+isn't exactly true for you.** The "why" post only works if it's really yours.
 
-### Launch 1 · We've arrived
-`post-launch-1-we-have-arrived.png`
-
-```
-We've arrived. 📘
-
-StudyFlow is officially live: a free organizer built from the ground up for IB Diploma students.
-
-IAs, the Extended Essay, CAS, TOK and every assignment, finally in one calm place.
-
-Follow along, because IB life is about to get a lot more organised. ✨
-
-#IBDP #IBstudent #InternationalBaccalaureate #IBDiploma #studygram #newapp
-```
-
-### Launch 2 · We came for you, IB students
-`post-launch-2-made-for-ib-students.png`
+### Post 1 · it's finally out
+`post-natural-1-its-out.png`
 
 ```
-We came for you, IB students. 🫵
+ok it's finally out
 
-Generic to-do apps don't know what an IA is. They don't track your EE word count, your CAS learning outcomes or your TOK essay.
+i've been building an organizer for IB students and it's live now. it's called studyflow. it's free, runs in your browser and you don't need an account
 
-StudyFlow does. Every part of it is built around the Diploma:
-📝 Internal Assessments
-📚 Extended Essay
-💙 CAS
-🌍 TOK
-📋 Assignments across all 50 DP courses
+it's still early so if something's broken or missing please tell me
 
-Tag an IB friend who needs this 👇
+link in bio
 
-#IBDP #IBstudent #IBDiploma #ExtendedEssay #InternalAssessment #CAS #TOK
+#IBDP #IBstudent #IBDiploma
 ```
 
-### Launch 3 · What is StudyFlow?
-`post-launch-3-what-is-studyflow.png`
+### Post 2 · why i made it
+`post-natural-2-why-i-made-it.png`
 
 ```
-So what is StudyFlow? Your whole IB, in one app. 📲
+the honest reason this exists
 
-01 · Smart dashboard: see what's due next and what's slipping, at a glance
-02 · Study planner: tell it your free hours and it builds your next 14 days
-03 · EE & CAS tracking: word count, milestones and learning outcomes
-04 · ManageBac import: bring your existing deadlines in one step
+i kept losing track of things. IA drafts, CAS reflections, my EE word count, all in different places, and i'd only notice a crazy week when i was already in it
 
-It's free, runs in your browser, and needs no account.
+so i built one place for all of it, made around how the IB actually works
 
-👉 make-study-flow.netlify.app (link in bio)
+which one of these is you? 👀
 
-#IBDP #IBstudent #studyplanner #studyapp #IBDiploma #ManageBac #productivity
+#IBDP #IBstudent #ExtendedEssay #CAS
 ```
+
+### Post 3 · what it does (carousel, 7 slides)
+`post-natural-3-carousel-1.png` to `post-natural-3-carousel-7.png`.
+Upload all seven as **one post**, in order.
+
+```
+what studyflow actually does, with real screenshots from the app
+
+1. opens on what's due next and warns you before a heavy week
+2. every IA, EE, CAS, TOK and assignment deadline in one list
+3. you tell it when you're free, it plans the next 2 weeks
+4. EE word count and milestones
+5. CAS hours and learning outcomes
+
+it's free: make-study-flow.netlify.app (link in bio)
+
+what should i add next? i'm reading every comment
+
+#IBDP #IBstudent #studyplanner #IBDiploma
+```
+
+**Why this works:** carousels get saved and swiped, which helps the
+algorithm. Ending on a real question gets comments. Short, lowercase captions
+with only a few hashtags read like a person posting, not a brand.
 
 ---
 
