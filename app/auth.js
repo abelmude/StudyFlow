@@ -108,7 +108,7 @@
       'New sign-ups are turned off for this site.']
   ];
 
-  function describe(status, json, fallback) {
+  function describe(status, json) {
     var raw = (json && (json.error_description || json.msg || json.message ||
       json.error_message || (typeof json.error === 'string' ? json.error : ''))) || '';
     for (var i = 0; i < FRIENDLY.length; i++) {
@@ -116,7 +116,7 @@
     }
     if (raw) return raw.charAt(0).toUpperCase() + raw.slice(1);
     if (status === 0) return 'Could not reach the account server. Check your connection and try again.';
-    return fallback || ('Something went wrong (error ' + status + ').');
+    return 'Something went wrong (error ' + status + ').';
   }
 
   function AuthError(message, status) {
@@ -145,7 +145,7 @@
       return res.text().then(function (text) {
         var json = null;
         if (text) { try { json = JSON.parse(text); } catch (e) { /* non-JSON body */ } }
-        if (!res.ok) throw AuthError(describe(res.status, json, opts.fallback), res.status);
+        if (!res.ok) throw AuthError(describe(res.status, json), res.status);
         return json || {};
       });
     });
@@ -153,14 +153,29 @@
 
   /* ---------- Sign up / in / out ---------- */
 
+  /**
+   * Where a confirmation or reset link should come back to.
+   *
+   * Sent explicitly rather than left to the project's configured Site URL,
+   * because that single setting cannot be right for every address the app is
+   * served from — a Netlify deploy preview, a custom domain and localhost are
+   * all legitimate, and a link that returns to the wrong one is a dead end.
+   *
+   * It is not a security hole: Supabase ignores any value not in the redirect
+   * allow-list and falls back to the Site URL, so the worst a tampered value
+   * can do is what would have happened anyway. SETUP.md covers the allow-list.
+   */
   function returnUrl() {
-    /* Where the confirmation and reset links come back to. Must be listed under
-       Authentication → URL Configuration in Supabase or it is ignored. */
     return location.origin + location.pathname;
   }
 
+  function withRedirect(path) {
+    return path + (path.indexOf('?') === -1 ? '?' : '&') +
+      'redirect_to=' + encodeURIComponent(returnUrl());
+  }
+
   function signUp(email, password, name) {
-    return call('/auth/v1/signup', {
+    return call(withRedirect('/auth/v1/signup'), {
       method: 'POST',
       body: {
         email: String(email || '').trim(),
@@ -205,7 +220,7 @@
   }
 
   function requestPasswordReset(email) {
-    return call('/auth/v1/recover', {
+    return call(withRedirect('/auth/v1/recover'), {
       method: 'POST',
       body: { email: String(email || '').trim() },
       headers: { 'X-Client-Info': 'studyflow' }
@@ -363,25 +378,6 @@
   function user() { return session ? session.user : null; }
   function isSignedIn() { return !!session; }
 
-  /** Confirms the stored session is still good, without blocking the app on it. */
-  function verify() {
-    if (!session) return Promise.resolve(null);
-    return withToken(function (token) {
-      return call('/auth/v1/user', { token: token });
-    }).then(function (u) {
-      if (session && u && u.id === session.user.id) {
-        session.user.email = u.email;
-        session.user.name = (u.user_metadata && u.user_metadata.name) || session.user.name;
-        store(session);
-      }
-      return session;
-    }, function (err) {
-      /* Only a definitive rejection signs anyone out; being offline must not. */
-      if (err && (err.status === 401 || err.status === 403)) store(null);
-      return session;
-    });
-  }
-
   window.SFAuth = {
     enabled: enabled,
     isSignedIn: isSignedIn,
@@ -397,7 +393,6 @@
     deleteAccount: deleteAccount,
 
     withToken: withToken,
-    verify: verify,
     consumeUrl: consumeUrl,
 
     /* Exposed for the sync layer and for tests. */
