@@ -74,6 +74,12 @@ self.addEventListener('fetch', function (e) {
      wrong and a way to serve one person's data to the next. */
   if (url.origin !== self.location.origin) return;
 
+  /* The accounts backend is same-origin, so without this it would fall into
+     the asset strategy below and be cached — which would mean serving one
+     student's diploma to whoever used the browser next, and answering a login
+     from cache. Never cache it, never serve it from cache. */
+  if (url.pathname.indexOf('/api/') === 0) return;
+
   /* version.json exists to answer "which build is live?". An answer from cache
      would defeat the entire point of asking. */
   if (url.pathname === '/version.json') return;

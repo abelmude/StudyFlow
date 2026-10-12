@@ -22,7 +22,6 @@
 (function () {
   'use strict';
 
-  var TABLE = '/rest/v1/student_data';
   var MARK_KEY = 'studyflow-sync-v1';   // what we last successfully pushed
   var PUSH_DELAY = 2500;                // coalesce bursts of edits
 
@@ -50,49 +49,18 @@
     return { status: status, error: lastError, at: lastSyncedAt, pending: pending };
   }
 
-  /* ---------- Request helper ----------
-     PostgREST, not GoTrue, so the error shape differs again. */
+  /* ---------- Talking to the account ----------
+     Which backend is in use, and how it shapes a request, is auth.js's
+     problem. From here there is a document to fetch and a document to send. */
 
-  function rest(path, opts) {
-    opts = opts || {};
-    return SFAuth.withToken(function (token) {
-      var headers = {
-        apikey: SFAuth.anonKey(),
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      };
-      Object.keys(opts.headers || {}).forEach(function (k) { headers[k] = opts.headers[k]; });
-
-      return fetch(SFAuth.url() + path, {
-        method: opts.method || 'GET',
-        headers: headers,
-        body: opts.body ? JSON.stringify(opts.body) : undefined
-      }).catch(function () {
-        var e = new Error('offline');
-        e.offline = true;
-        throw e;
-      }).then(function (res) {
-        return res.text().then(function (text) {
-          var json = null;
-          if (text) { try { json = JSON.parse(text); } catch (e) { /* non-JSON */ } }
-          if (!res.ok) {
-            var e = new Error((json && (json.message || json.hint || json.details)) ||
-                              ('Server error ' + res.status));
-            e.status = res.status;
-            /* 42P01 = relation does not exist: the SQL in supabase/schema.sql
-               was never run. Worth naming precisely, because otherwise it
-               looks like a bug in the app. */
-            if (json && json.code === '42P01') {
-              e.message = 'The student_data table does not exist yet. Run supabase/schema.sql in the Supabase SQL editor.';
-              e.setup = true;
-            }
-            throw e;
-          }
-          return json;
-        });
-      });
-    });
+  function describeError(err) {
+    if (!err) return 'Could not reach your account.';
+    /* A missing table means the SQL in supabase/schema.sql was never run. Worth
+       naming precisely, because otherwise it looks like a bug in the app. */
+    if (/does not exist|42P01/i.test(err.message || '')) {
+      return 'Your account database is not set up yet. Run supabase/schema.sql in the Supabase SQL editor.';
+    }
+    return err.message || 'Could not reach your account.';
   }
 
   /* ---------- Marks ----------
@@ -126,10 +94,7 @@
   /* ---------- Pull ---------- */
 
   function pull() {
-    return rest(TABLE + '?select=data,updated_at').then(function (rows) {
-      if (!rows || !rows.length) return null;
-      return { data: rows[0].data, updatedAt: rows[0].updated_at };
-    });
+    return SFAuth.pullDocument();
   }
 
   /* ---------- Push ---------- */
@@ -143,7 +108,6 @@
 
     var doc = SF.state;
     var print = fingerprint(doc);
-    var uid = SFAuth.user().id;
 
     /* Cleared as the request leaves, not when it lands. "Pending" means "there
        are edits this request is not carrying" — so it has to be reset here,
@@ -153,12 +117,7 @@
     pending = false;
 
     setStatus('syncing');
-    inFlight = rest(TABLE, {
-      method: 'POST',
-      /* Upsert on the primary key. One row per user, always replaced whole. */
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: [{ user_id: uid, data: doc, updated_at: new Date().toISOString() }]
-    }).then(function () {
+    inFlight = SFAuth.pushDocument(doc).then(function () {
       inFlight = null;
       lastSyncedAt = new Date();
       writeMark({ print: print, at: lastSyncedAt.toISOString() });
@@ -170,8 +129,8 @@
     }, function (err) {
       inFlight = null;
       pending = true;
-      if (err && err.offline) setStatus('offline');
-      else setStatus('error', err ? err.message : 'Could not save to your account.');
+      if (err && (err.offline || err.status === 0)) setStatus('offline');
+      else setStatus('error', describeError(err));
       /* Deliberately not rethrown: a failed background sync is a status, not
          an exception for the UI to handle. The data is safe on the device. */
     });
@@ -242,9 +201,10 @@
         summary: { local: describe(local), remote: describe(remote.data), at: remote.updatedAt }
       };
     }, function (err) {
-      if (err && err.offline) { setStatus('offline'); return { action: 'offline' }; }
-      setStatus('error', err ? err.message : 'Could not reach your account.');
-      return { action: 'error', message: err ? err.message : '' };
+      if (err && (err.offline || err.status === 0)) { setStatus('offline'); return { action: 'offline' }; }
+      var message = describeError(err);
+      setStatus('error', message);
+      return { action: 'error', message: message };
     });
   }
 

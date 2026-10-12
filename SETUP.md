@@ -1,31 +1,72 @@
-# Turning on email + password accounts
+# Accounts
 
-StudyFlow works right now with no accounts at all: a student's diploma is saved
-in their own browser. That is private and it works offline, but it does not
-follow them to their phone, and clearing browser data erases it.
+StudyFlow can run two ways, and the app is complete either way.
 
-This turns on real accounts — sign up with an email and password, log in on any
-device, everything syncs.
-
-**It takes about fifteen minutes and costs nothing.** You will not touch any
-code; you paste one block of SQL and set two environment variables.
+| | What a student gets |
+| --- | --- |
+| **No account** | The diploma is saved in their own browser. Private, offline, nothing uploaded. It does not reach their phone, and clearing browser data erases it. |
+| **With an account** | Email and password, and the same diploma on every device they log in on. |
 
 ---
 
-## Why it needs a service at all
+## The short version
 
-A password cannot be checked in the browser. Whatever the page does, the
-checking has to happen somewhere the student does not control, or it means
-nothing — anything else is a lock with the key taped to it.
+**Deploy this repository to Netlify and accounts already work.** There is
+nothing to sign up for and nothing to configure.
 
-StudyFlow is a static site, so there is no server of ours to do that checking.
-It therefore uses [Supabase](https://supabase.com), which is built for exactly
-this case: it hashes passwords server-side, issues short-lived signed tokens,
-and handles the confirmation and password-reset emails. The free tier is
-generous enough for a school.
+The accounts server is `netlify/functions/api.mjs`, in this repository. It runs
+as a Netlify Function with Netlify Blobs underneath, both included in the free
+tier. The build turns accounts on automatically when it detects it is running
+on Netlify.
 
-StudyFlow talks to it over plain HTTP requests, with no SDK and no build
-tooling, so the app keeps having zero dependencies.
+That is the whole setup. The rest of this file is about the one thing it cannot
+do, and the option that can.
+
+---
+
+## What the built-in server cannot do: send email
+
+There is no mail provider behind it, so it sends nothing. Two consequences,
+both shown plainly in the app rather than buried:
+
+**1. An email address is not verified.** It is a username that happens to look
+like an email. Someone could sign up as a name that is not theirs. They gain
+nothing by it — they still cannot read anybody else's data — but it is not
+proof of identity and must not be treated as one.
+
+**2. There is no "email me a reset link".** Instead, signing up issues a
+one-time **recovery code**, shown once on a screen the student has to tick to
+leave. That code is the only way back in after a forgotten password.
+
+That second point is not a shortcut, it is the only honest option: if the
+server could restore an account without something only the owner holds, so
+could anyone who asked it to. The trade is real, though — a student who loses
+both their password and their code has lost that account, and nobody can undo
+it.
+
+### What it does do
+
+- Passwords hashed with scrypt and a per-password salt, never stored or logged
+  in any readable form
+- Signed session tokens; logging out, changing a password or using a recovery
+  code invalidates every token already issued, on every device
+- Rate limiting per account and per address, so a password cannot be guessed at
+  by a script
+- One student's data is keyed by an account id taken from the signed token, so
+  there is no request shape that could ask for someone else's
+- Delete-my-account really deletes: the row, the diploma and the login
+
+---
+
+## The other option: Supabase, for verified email
+
+If you want addresses that are actually confirmed and real emailed password
+resets — worth it for a whole year group — point the app at
+[Supabase](https://supabase.com) instead. It is free, it takes about fifteen
+minutes, and you will not write any code.
+
+The app speaks both. Setting the two environment variables below switches it
+over; removing them switches it back.
 
 ---
 
@@ -54,6 +95,9 @@ to finish if the security rules did not apply, because a table without them
 would let any visitor read every student's data.
 
 ## Step 3 — Point your site at it
+
+Setting these is also what tells the app to use Supabase rather than the
+built-in server.
 
 Still in Supabase, open **Project Settings → API**. You need two values:
 
@@ -173,11 +217,20 @@ against known breaches. Worth switching on.
 
 ---
 
-## Turning accounts off again
+## Switching back
 
-Delete the two environment variables in Netlify and redeploy. The app goes back
-to being purely local. Nothing in the database is touched, so putting them back
-restores every account.
+Delete the two environment variables in Netlify and redeploy. The app returns to
+the built-in server. Nothing in Supabase is touched, so putting them back
+restores every account there.
 
-Students who were logged in will find themselves on the local version with
-whatever was last synced to their browser. Their data is still in Supabase.
+Accounts do not carry across between the two backends — they are separate
+systems with separate databases. A student with a Supabase account will be
+asked to sign up again on the built-in one, and their diploma stays in whichever
+backend it was saved to. Switching after people have signed up means telling
+them that, so decide early if you can.
+
+## Turning accounts off entirely
+
+Accounts are on by default once deployed. To run the site as a purely local tool
+with no sign-in at all, delete `netlify/functions/` and the `/api/*` redirect in
+`netlify.toml`, and leave the Supabase variables unset.

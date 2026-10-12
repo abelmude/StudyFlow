@@ -1,0 +1,22 @@
+{
+  "name": "studyflow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An all-in-one organizer for IB Diploma Programme students.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/write-config.js"
+  },
+  "comment": [
+    "The site itself still has no dependencies — index.html, the app/ folder and",
+    "everything a browser downloads is plain HTML, CSS and JavaScript with no",
+    "bundler, no framework and no CDN.",
+    "",
+    "This one dependency belongs to the accounts backend in netlify/functions/,",
+    "which runs on the server and never reaches a browser. Netlify installs it",
+    "automatically before the build."
+  ],
+  "dependencies": {
+    "@netlify/blobs": "^8.0.0"
+  }
+}

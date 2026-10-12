@@ -1501,11 +1501,14 @@
     if (!accountsOn()) {
       return sectionCard('Accounts', stack(
         h('p.card__note',
-          'Email and password accounts are not switched on for this site, so StudyFlow is ' +
-          'running as a local tool: your diploma is saved in this browser and nowhere else.'),
+          'Email and password accounts are not switched on here, so StudyFlow is running ' +
+          'as a local tool: your diploma is saved in this browser and nowhere else.'),
         h('p.card__note',
-          'To turn accounts on, set SUPABASE_URL and SUPABASE_ANON_KEY in the hosting ' +
-          'environment and redeploy. SETUP.md in the project has the steps.')
+          'This is what you get from a bare folder or a local server. Deploy the site to ' +
+          'Netlify and accounts switch themselves on — the accounts server ships in the ' +
+          'project, so there is nothing to sign up for. SETUP.md has the details, including ' +
+          'how to use a hosted identity service instead if you want verified email ' +
+          'addresses and emailed password resets.')
       ));
     }
 
@@ -1550,6 +1553,13 @@
         'Your diploma is saved to this account, so logging in on another device brings it ' +
         'with you. Changes save on this device first and upload a moment later, which is ' +
         'why it keeps working with no signal.'),
+
+      SFAuth.can().recoveryCode
+        ? h('p.card__note',
+            'This site cannot send email, so your address is a username rather than ' +
+            'something we have checked, and there is no reset link. If you forget your ' +
+            'password, the recovery code you saved when you signed up is the way back in.')
+        : null,
 
       h('div.setacts',
         h('button.btn.btn--ghost', {

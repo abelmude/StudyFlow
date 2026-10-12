@@ -37,6 +37,23 @@
     Cache-Control = "public, max-age=0, must-revalidate"
     Service-Worker-Allowed = "/"
 
+# The accounts backend. netlify/functions/api.mjs handles everything under
+# /api/ — sign-up, login, recovery and the student's own diploma. Routing it
+# here rather than relying on the function's own path config keeps one obvious
+# place to look when a request 404s.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Nothing the accounts backend returns may ever be cached: it is all per
+# account, and a cached response would be served to the next person.
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store"
+
 [[headers]]
   for = "/manifest.webmanifest"
   [headers.values]

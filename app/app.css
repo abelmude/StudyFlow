@@ -943,6 +943,24 @@ body.is-onboarding .shell { display: none; }
 
 .btn.is-busy { opacity: .7; cursor: progress; }
 
+/* The recovery code. Shown once, so it is the largest thing on its screen and
+   set in the data font, where 0/O and 1/l cannot be confused when copying. */
+.auth__code {
+  font-family: var(--mono);
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
+  font-weight: 700; letter-spacing: .08em; word-break: break-all;
+  padding: 16px 20px; border-radius: var(--r-md);
+  background: var(--surface-2); border: 1px dashed var(--line-strong);
+  color: var(--text); user-select: all; width: 100%;
+}
+.auth__code:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.auth__confirm {
+  display: flex; align-items: center; gap: 9px; justify-content: center;
+  font-size: .85rem; color: var(--muted); cursor: pointer; text-align: left;
+}
+.auth__confirm input { width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
+
 .auth__choices { display: grid; gap: 12px; margin-top: 6px; }
 .auth__choices .onb__choice { gap: 6px; }
 .auth__choicemeta {
