@@ -84,11 +84,21 @@ confirmation and reset links need your domain.
 In Supabase, open **Authentication → URL Configuration**:
 
 - **Site URL**: `https://your-site.netlify.app/app/`
-- **Redirect URLs**: add `https://your-site.netlify.app/app/`
-  (and `http://localhost:8080/app/` if you test locally)
+- **Redirect URLs**: add all of these, one per line:
+  ```
+  https://your-site.netlify.app/app/
+  https://your-site.netlify.app/app/index.html
+  http://localhost:8080/app/index.html
+  ```
 
 Use your real Netlify address. Note the `/app/` on the end — that is the page
 the links come back to.
+
+StudyFlow asks for the exact page it was opened from, rather than relying on
+Site URL alone, so that a deploy preview or a custom domain is not a dead end.
+Anything not on this list is ignored and falls back to Site URL, so an address
+missing from it shows up as a link that lands on the wrong page — if that
+happens, add it here. If you add a custom domain later, add it here too.
 
 ## Step 5 — Check it
 
