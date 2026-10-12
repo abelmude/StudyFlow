@@ -4,8 +4,10 @@ StudyFlow is an all-in-one organizer built for IB students. It brings your assig
 
 Sign in with an email and password and your diploma follows you from laptop to
 phone; or use it with no account at all and everything stays in your browser.
-Accounts are off until a backend is configured — **[SETUP.md](SETUP.md)** turns
-them on in about fifteen minutes, without writing any code.
+**Deploy it to Netlify and accounts already work** — the accounts server is in
+this repository, so there is nothing to sign up for and nothing to configure.
+[SETUP.md](SETUP.md) explains what that server can and cannot do, and how to
+swap it for a hosted one if you want verified email addresses.
 
 ---
 
@@ -91,7 +93,9 @@ To serve the app at the root instead, add to `netlify.toml`:
 | `app/authview.js` | Sign up, log in, password reset, conflict resolution |
 | `app/app.js` | Router, the ten views, all interactions |
 | `app/app.css` | App styling |
-| `supabase/schema.sql` | The table, its security rules and the delete-my-account function |
+| `netlify/functions/api.mjs` | The built-in accounts server — sign-up, login, recovery, sync |
+| `supabase/schema.sql` | For the Supabase option: the table, its security rules and delete-my-account |
+| `package.json` | One dependency, used only by the server-side function |
 | `scripts/write-config.js` | The build step: config, version stamp, cache name |
 | `SETUP.md` | How to switch accounts on |
 | `manifest.webmanifest` | Makes the app installable |
@@ -298,28 +302,50 @@ shared computer that distinction matters. **Start over** in Settings erases.
 
 ## Accounts
 
-Off by default, and the app is complete without them: a diploma lives in the
-browser, privately and offline. Switching them on adds email and password
-sign-in, so the same diploma appears on a laptop and a phone.
-
-**[SETUP.md](SETUP.md) has the steps** — a Supabase project, one block of SQL,
-two environment variables in Netlify. About fifteen minutes, no code, no cost.
-
-### How it is put together
+The app is complete without them — a diploma lives in the browser, privately and
+offline. With one, the same diploma appears on a laptop and a phone.
 
 A password cannot be checked in the browser. Whatever the page does, the
 checking has to happen somewhere the student does not control, or it means
-nothing. StudyFlow is a static site with no server of its own, so that job goes
-to a real identity provider (Supabase Auth), which hashes passwords with bcrypt
-and owns the confirmation and reset emails. `app/auth.js` talks to it over
-plain `fetch` rather than through an SDK, so the app still has no dependencies.
+nothing. So accounts need a server, and there are two it can use. The app
+speaks both, and `app/auth.js` talks to either over plain `fetch` rather than
+through an SDK, so the browser still downloads nothing but the app.
 
-What separates one student's data from another's is **Row Level Security** in
-Postgres: the database itself refuses to return or write a row whose owner is
-not the signed-in user. There is no application code in that path that could
-forget a check. The key in the browser (`anon`) is public by design and
-identifies the project, not the person; `supabase/schema.sql` refuses to finish
-if the security rules did not apply.
+### Built in — the default
+
+`netlify/functions/api.mjs`, in this repository. One Netlify Function with
+Netlify Blobs underneath, both on the free tier. **Deploy the site and accounts
+work**: no signup, no key, no configuration. The build switches them on when it
+sees it is running on Netlify.
+
+Passwords are hashed with scrypt and a per-password salt. Session tokens are
+signed, and logging out — or changing a password, or using a recovery code —
+invalidates every token already issued, on every device. Login is rate limited
+per account and per address. A student's diploma is keyed by an account id
+taken from the signed token, so there is no request shape that could ask for
+someone else's.
+
+What it cannot do is **send email**, because there is no mail provider behind
+it. So an address is a username rather than a verified identity, and instead of
+a reset link, signing up issues a one-time **recovery code** shown once. That is
+not a shortcut: if the server could restore an account without something only
+the owner holds, so could anyone who asked it to. The app says all of this on
+the sign-up screen rather than burying it.
+
+### Supabase — when you want verified email
+
+Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` and the app uses a hosted identity
+service instead, which does confirm addresses and does email reset links.
+[SETUP.md](SETUP.md) has the steps — about fifteen minutes, free, no code.
+
+There, what separates one student's data from another's is **Row Level
+Security** in Postgres: the database itself refuses to return or write a row
+whose owner is not the signed-in user. The key in the browser (`anon`) is public
+by design and identifies the project, not the person; `supabase/schema.sql`
+refuses to finish if the security rules did not apply.
+
+The two are separate systems with separate databases, so accounts do not carry
+across between them. Choose before people sign up if you can.
 
 ### Syncing
 
@@ -345,10 +371,10 @@ Sandra's deadlines on your phone.
 
 ### What accounts do not do
 
-They are not end-to-end encrypted: a project administrator can read the
-database. That is worth saying plainly to students rather than leaving implied —
-and the no-account route stays available to anyone who would rather keep their
-data on their own device.
+Neither backend is end-to-end encrypted: whoever administers the site can read
+the database. That is worth saying plainly to students rather than leaving
+implied — and the no-account route stays available to anyone who would rather
+keep their data on their own device.
 
 ---
 
@@ -373,9 +399,9 @@ only you can make, so sending opens your own mail client.
 
 ## Notes
 
-- **No third-party scripts.** No CDNs, web fonts, analytics or trackers. The
-  only network request the app ever makes is to your own account provider, and
-  only if you configured one.
+- **No third-party scripts.** No CDNs, web fonts, analytics or trackers, and no
+  dependencies in anything a browser downloads. The only network request the app
+  makes is to its own accounts server, and only once you are signed in.
 - **Backend optional.** With none, there are no accounts and no database: all
   data stays in the browser under `studyflow-data-v1`. With one, that stays
   true as well — the browser copy is what makes it work offline.

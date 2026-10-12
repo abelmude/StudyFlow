@@ -1,25 +1,34 @@
 /* StudyFlow — runtime configuration.
  *
- * This file is REGENERATED ON EVERY DEPLOY by scripts/write-config.js, which
- * reads the values out of Netlify's environment variables. The copy in the
- * repository is deliberately blank, which is what makes StudyFlow work with no
- * backend at all: with no Supabase project configured the app runs exactly as
- * it always has — everything in localStorage, no account, no network.
+ * This file is REGENERATED ON EVERY DEPLOY by scripts/write-config.js. The copy
+ * in the repository is deliberately blank, which is what makes StudyFlow work
+ * from a bare folder: with nothing configured it runs exactly as it always
+ * has — everything in localStorage, no account, no network.
  *
- * To turn on real email + password accounts, set these in Netlify under
- * Site configuration → Environment variables, then redeploy:
+ * `accounts` is decided by the build, because only the build knows what is
+ * behind it:
  *
- *   SUPABASE_URL        https://xxxxxxxx.supabase.co
- *   SUPABASE_ANON_KEY   eyJhbGciOi…
+ *   'builtin'   The default once deployed to Netlify. The accounts server is
+ *               netlify/functions/api.mjs, right here in this repository — no
+ *               signup, no key, no configuration. It sends no email, so an
+ *               address is a username rather than a verified identity, and a
+ *               forgotten password is recovered with a one-time code issued at
+ *               sign-up.
  *
- * The anon key is designed to be public — it is in every visitor's browser by
- * design. What actually protects one student's data from another's is Row
- * Level Security in Postgres, which supabase/schema.sql sets up. Never put the
- * service_role key here; that one bypasses RLS entirely.
+ *   'supabase'  Set SUPABASE_URL and SUPABASE_ANON_KEY in the hosting
+ *               environment to use a hosted identity service instead. More
+ *               work to set up, and in exchange you get verified email
+ *               addresses and emailed password resets. SETUP.md has the steps.
  *
- * SETUP.md walks through the whole thing.
+ *   ''          No server — local only.
+ *
+ * The Supabase anon key is public by design; it identifies the project, not
+ * the person, and Row Level Security is what separates one student's data from
+ * another's. Never put the service_role key here: it bypasses those rules
+ * entirely, and the build refuses it.
  */
 window.SF_CONFIG = {
+  accounts: '',
   supabaseUrl: '',
   supabaseAnonKey: '',
 

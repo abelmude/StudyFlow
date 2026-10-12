@@ -1,44 +1,64 @@
-/* StudyFlow — real email + password accounts. Exposes window.SFAuth.
+/* StudyFlow — accounts. Exposes window.SFAuth.
  *
  * ──────────────────────────────────────────────────────────────────────────
  * Why it is built this way
  * ──────────────────────────────────────────────────────────────────────────
- * StudyFlow is a static site: there is no server of ours to check a password
- * against. A password cannot be verified in the browser — anything that looks
- * like it is checking one client-side is checking it against something the
- * user already has, which is theatre, not security. So authentication is done
- * by a real identity provider (Supabase Auth / GoTrue), which hashes passwords
- * server-side with bcrypt, issues short-lived signed JWTs, and owns email
- * confirmation and password resets.
+ * A password cannot be checked in the browser. Anything that looks like it is
+ * checking one client-side is checking it against something the user already
+ * has, which is theatre, not security. So the checking happens on a server, and
+ * this file is only ever the client of one.
  *
- * It talks to that provider over plain fetch rather than through an SDK, so the
- * app keeps its one real virtue: no dependencies, no build step, nothing to go
- * stale. The whole client is this file.
+ * There are two servers it can talk to, and the app works the same either way:
  *
- * If no provider is configured (app/config.js blank), accounts are simply off
- * and StudyFlow behaves exactly as it did before — local, private, offline.
- * That matters: it means a deploy can never be broken by a misconfigured
- * backend, only missing a feature.
+ *   built-in   netlify/functions/api.mjs, in this repository. Needs no signup,
+ *              no key and no configuration — deploy the site and accounts
+ *              work. It sends no email, so an address is a username rather
+ *              than a verified identity, and a forgotten password is recovered
+ *              with a one-time code issued at sign-up instead of a reset link.
  *
- * Token storage: the access and refresh tokens live in localStorage. That is
- * what Supabase's own SDK does, and it is the only option for a site with no
- * backend to set an httpOnly cookie. The honest trade-off is that any XSS on
- * this origin can read them — which is why the app loads no third-party
- * scripts, no CDN, no analytics and no fonts. Access tokens are short-lived
- * (one hour) and refreshed, so a leak is bounded rather than permanent.
+ *   Supabase   a hosted identity service. Needs a free project and two
+ *              environment variables, and in exchange gives genuinely verified
+ *              addresses and emailed password resets. SETUP.md covers it.
+ *
+ * Whichever is in use, this file talks to it over plain fetch. No SDK, so the
+ * browser still downloads nothing but the app itself.
+ *
+ * Token storage: the session lives in localStorage. That is what Supabase's own
+ * library does and the only option for a site with no backend of its own to
+ * set an httpOnly cookie. The honest trade-off is that script running on this
+ * origin could read it — which is why the app loads no third-party scripts at
+ * all: no CDN, no analytics, no web fonts.
  */
 (function () {
   'use strict';
 
   var KEY = 'studyflow-auth-v1';
   var cfg = window.SF_CONFIG || {};
-  var URL_BASE = (cfg.supabaseUrl || '').replace(/\/+$/, '');
-  var ANON = cfg.supabaseAnonKey || '';
 
-  /** Accounts only exist if a provider was configured at build time. */
-  function enabled() { return !!(URL_BASE && ANON); }
+  var SUPA_URL = (cfg.supabaseUrl || '').replace(/\/+$/, '');
+  var SUPA_KEY = cfg.supabaseAnonKey || '';
 
-  /* ---------- Session storage ---------- */
+  /* Which backend this deployment has. Decided at build time by
+     scripts/write-config.js, because only the build knows whether it is
+     running on a host that serves the functions. */
+  var MODE = cfg.accounts || (SUPA_URL && SUPA_KEY ? 'supabase' : '');
+
+  function enabled() { return MODE === 'builtin' || MODE === 'supabase'; }
+  function provider() { return enabled() ? MODE : ''; }
+
+  /** What this backend can actually do, so the UI never offers what it cannot. */
+  function can() {
+    return {
+      /* Does the address get verified? */
+      verifiesEmail: MODE === 'supabase',
+      /* Is there a "we emailed you a link" path? */
+      emailReset: MODE === 'supabase',
+      /* Or a code the student has to keep? */
+      recoveryCode: MODE === 'builtin'
+    };
+  }
+
+  /* ---------- Session ---------- */
 
   var session = null;
   var listeners = [];
@@ -48,7 +68,11 @@
       var raw = localStorage.getItem(KEY);
       if (!raw) return null;
       var s = JSON.parse(raw);
-      if (s && s.access_token && s.refresh_token && s.user && s.user.id) return s;
+      if (!s || !s.access_token || !s.user || !s.user.id) return null;
+      /* A session belongs to the backend that issued it. If the site has been
+         switched from one to the other, the old token is meaningless. */
+      if (s.provider && s.provider !== MODE) return null;
+      return s;
     } catch (e) { /* corrupt or unavailable — treat as signed out */ }
     return null;
   }
@@ -58,61 +82,56 @@
     try {
       if (s) localStorage.setItem(KEY, JSON.stringify(s));
       else localStorage.removeItem(KEY);
-    } catch (e) { /* private mode: the session simply does not survive reload */ }
+    } catch (e) { /* private mode: the session does not survive a reload */ }
     listeners.forEach(function (fn) { try { fn(s); } catch (e) { /* listener's problem */ } });
   }
 
   function onChange(fn) { listeners.push(fn); }
 
-  /** Shape a GoTrue token response into what we keep. */
-  function adopt(json) {
+  function adopt(o) {
     store({
-      access_token: json.access_token,
-      refresh_token: json.refresh_token,
-      /* Absolute expiry, since a relative expires_in is meaningless after a
-         reload. 60s of slack so a request never leaves with a token that
+      provider: MODE,
+      access_token: o.access_token,
+      refresh_token: o.refresh_token || null,
+      /* Absolute, since a relative "expires in" is meaningless after a reload.
+         A minute of slack so a request never leaves carrying a token that
          expires mid-flight. */
-      expires_at: Date.now() + (((json.expires_in || 3600) - 60) * 1000),
-      user: {
-        id: json.user.id,
-        email: json.user.email,
-        name: (json.user.user_metadata && json.user.user_metadata.name) || '',
-        confirmedAt: json.user.email_confirmed_at || json.user.confirmed_at || null
-      }
+      expires_at: Date.now() + (((o.expires_in || 3600) - 60) * 1000),
+      user: o.user
     });
     return session;
   }
 
   /* ---------- Errors ----------
-     GoTrue reports failures under half a dozen different keys depending on the
-     endpoint and version. Normalising once here keeps every call site simple,
-     and lets the messages a student actually reads be written in plain English
-     rather than passed through raw. */
+     Normalised once, so every call site is simple and the sentences a student
+     reads are written here in plain English rather than passed through raw. */
 
   var FRIENDLY = [
-    [/invalid login credentials|invalid_grant/i,
-      'That email and password do not match an account. Check for typos, or reset your password.'],
+    [/invalid login credentials|invalid_grant|do not match an account/i,
+      'That email and password do not match an account. Check for typos, or recover your account below.'],
     [/email not confirmed/i,
       'Confirm your email first — check your inbox for the link we sent, including the spam folder.'],
-    [/user already registered|already been registered/i,
-      'There is already an account with that email. Log in instead, or reset the password.'],
-    [/password should be at least/i,
+    [/already registered|already been registered|cannot be used to create/i,
+      'That email cannot be used to create a new account. If it is yours, log in instead.'],
+    [/password should be at least|at least 8 characters/i,
       'That password is too short. Use at least 8 characters.'],
     [/weak.?password|password is too weak|pwned/i,
       'That password is too easy to guess. Try a longer one, or three unrelated words.'],
-    [/unable to validate email|invalid email|email_address_invalid/i,
+    [/unable to validate email|invalid email|email_address_invalid|valid email address/i,
       'That does not look like a valid email address.'],
-    [/rate ?limit|too many requests|email rate limit/i,
-      'Too many attempts just now. Wait a minute and try again.'],
+    [/rate ?limit|too many/i, null],   // the server's own wording is better here
     [/signups? not allowed|signup is disabled/i,
-      'New sign-ups are turned off for this site.']
+      'New sign-ups are turned off for this site.'],
+    [/recovery code/i,
+      'That email and recovery code do not match an account.']
   ];
 
   function describe(status, json) {
     var raw = (json && (json.error_description || json.msg || json.message ||
       json.error_message || (typeof json.error === 'string' ? json.error : ''))) || '';
+
     for (var i = 0; i < FRIENDLY.length; i++) {
-      if (FRIENDLY[i][0].test(raw)) return FRIENDLY[i][1];
+      if (FRIENDLY[i][0].test(raw)) return FRIENDLY[i][1] || raw;
     }
     if (raw) return raw.charAt(0).toUpperCase() + raw.slice(1);
     if (status === 0) return 'Could not reach the account server. Check your connection and try again.';
@@ -126,140 +145,304 @@
     return e;
   }
 
-  /* ---------- Raw request helper ---------- */
-
-  function call(path, opts) {
+  /** One request, one normalised outcome. */
+  function request(url, opts) {
     opts = opts || {};
-    var headers = { apikey: ANON, 'Content-Type': 'application/json' };
-    if (opts.token) headers.Authorization = 'Bearer ' + opts.token;
+    var headers = { 'Content-Type': 'application/json' };
     Object.keys(opts.headers || {}).forEach(function (k) { headers[k] = opts.headers[k]; });
+    if (opts.token) headers.Authorization = 'Bearer ' + opts.token;
 
-    return fetch(URL_BASE + path, {
+    return fetch(url, {
       method: opts.method || 'GET',
       headers: headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined
     }).catch(function () {
-      throw AuthError(describe(0, null), 0);
+      var e = AuthError(describe(0, null), 0);
+      e.offline = true;
+      throw e;
     }).then(function (res) {
-      /* 204 and empty bodies are normal (logout), so never assume JSON. */
+      /* 204 and empty bodies are normal, so never assume there is JSON. */
       return res.text().then(function (text) {
         var json = null;
-        if (text) { try { json = JSON.parse(text); } catch (e) { /* non-JSON body */ } }
+        if (text) { try { json = JSON.parse(text); } catch (e) { /* not JSON */ } }
         if (!res.ok) throw AuthError(describe(res.status, json), res.status);
         return json || {};
       });
     });
   }
 
-  /* ---------- Sign up / in / out ---------- */
+  /* ══════════════════════ The built-in backend ══════════════════════ */
+
+  var builtin = {
+    /* The built-in API names its fields for itself rather than imitating
+       GoTrue, so they are mapped here — the one place that knows both shapes. */
+    take: function (r) {
+      return adopt({ access_token: r.token, expires_in: r.expiresIn, user: r.user });
+    },
+
+    signUp: function (email, password, name) {
+      return request('/api/auth/signup', {
+        method: 'POST', body: { email: email, password: password, name: name }
+      }).then(function (r) {
+        builtin.take(r);
+        /* Shown once and never retrievable: only its hash is kept. The caller
+           has to put it in front of the student now or not at all. */
+        return { session: session, needsConfirmation: false, recoveryCode: r.recoveryCode };
+      });
+    },
+
+    signIn: function (email, password) {
+      return request('/api/auth/login', {
+        method: 'POST', body: { email: email, password: password }
+      }).then(builtin.take);
+    },
+
+    signOut: function (token) {
+      return request('/api/auth/logout', { method: 'POST', token: token });
+    },
+
+    setPassword: function (password) {
+      return withToken(function (token) {
+        return request('/api/auth/password', {
+          method: 'POST', token: token, body: { password: password }
+        });
+      }).then(function (r) {
+        /* Changing a password signs other devices out, which means a new token
+           for this one. */
+        if (r && r.token) {
+          adopt({ access_token: r.token, expires_in: r.expiresIn, user: session.user });
+        }
+      });
+    },
+
+    /** The way back in with no email to send to. */
+    recoverWithCode: function (email, code, password) {
+      return request('/api/auth/recover', {
+        method: 'POST', body: { email: email, recoveryCode: code, password: password }
+      }).then(function (r) {
+        builtin.take(r);
+        return { session: session, recoveryCode: r.recoveryCode };
+      });
+    },
+
+    deleteAccount: function () {
+      return withToken(function (token) {
+        return request('/api/auth/me', { method: 'DELETE', token: token });
+      });
+    },
+
+    pullDocument: function () {
+      return withToken(function (token) {
+        return request('/api/data', { token: token });
+      }).then(function (r) {
+        return r && r.data ? { data: r.data, updatedAt: r.updatedAt } : null;
+      });
+    },
+
+    pushDocument: function (doc) {
+      return withToken(function (token) {
+        return request('/api/data', { method: 'PUT', token: token, body: { data: doc } });
+      });
+    },
+
+    /* No email links, so nothing ever comes back in the URL. */
+    consumeUrl: function () { return null; },
+
+    /* Tokens are long-lived and not refreshable: when one expires, logging in
+       again is the honest answer rather than a silent half-session. */
+    refresh: function () {
+      store(null);
+      return Promise.reject(AuthError('Your session has expired. Please log in again.', 401));
+    }
+  };
+
+  /* ══════════════════════ Supabase ══════════════════════ */
+
+  function supaRequest(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ apikey: SUPA_KEY }, opts.headers || {});
+    return request(SUPA_URL + path, opts);
+  }
 
   /**
    * Where a confirmation or reset link should come back to.
    *
-   * Sent explicitly rather than left to the project's configured Site URL,
-   * because that single setting cannot be right for every address the app is
-   * served from — a Netlify deploy preview, a custom domain and localhost are
-   * all legitimate, and a link that returns to the wrong one is a dead end.
-   *
-   * It is not a security hole: Supabase ignores any value not in the redirect
-   * allow-list and falls back to the Site URL, so the worst a tampered value
-   * can do is what would have happened anyway. SETUP.md covers the allow-list.
+   * Sent explicitly rather than left to the project's Site URL, because that
+   * one setting cannot be right for every address the app is served from — a
+   * deploy preview, a custom domain and localhost are all legitimate, and a
+   * link returning to the wrong one is a dead end. Supabase ignores any value
+   * not in its allow-list, so a tampered one achieves nothing.
    */
-  function returnUrl() {
-    return location.origin + location.pathname;
-  }
+  function returnUrl() { return location.origin + location.pathname; }
 
   function withRedirect(path) {
     return path + (path.indexOf('?') === -1 ? '?' : '&') +
       'redirect_to=' + encodeURIComponent(returnUrl());
   }
 
-  function signUp(email, password, name) {
-    return call(withRedirect('/auth/v1/signup'), {
-      method: 'POST',
-      body: {
-        email: String(email || '').trim(),
-        password: password,
-        data: { name: String(name || '').trim() },
-        gotrue_meta_security: {}
-      },
-      headers: { 'X-Client-Info': 'studyflow' }
-    }).then(function (json) {
-      /* Two legitimate outcomes. With email confirmation on (the default, and
-         the right setting) there is no session yet and the student must click
-         the link. With it off, we are signed straight in. */
-      if (json.access_token) return { session: adopt(json), needsConfirmation: false };
-
-      /* Supabase deliberately returns a user-shaped object with no identities
-         when the address is already taken, so that signup cannot be used to
-         enumerate who has an account. Treat it as "check your email" too —
-         saying "that email is taken" here would undo that protection. */
-      return {
-        session: null,
-        needsConfirmation: true,
-        email: (json && json.email) || String(email || '').trim()
-      };
-    });
+  function supaUser(u) {
+    return {
+      id: u.id,
+      email: u.email,
+      name: (u.user_metadata && u.user_metadata.name) || ''
+    };
   }
 
-  function signIn(email, password) {
-    return call('/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      body: { email: String(email || '').trim(), password: password }
-    }).then(adopt);
-  }
-
-  function signOut() {
-    var token = session && session.access_token;
-    store(null);
-    if (!token) return Promise.resolve();
-    /* Revoke server-side too, but a failure here must not keep someone logged
-       in on a shared computer — the local session is already gone. */
-    return call('/auth/v1/logout', { method: 'POST', token: token })
-      .catch(function () { /* already expired, or offline */ });
-  }
-
-  function requestPasswordReset(email) {
-    return call(withRedirect('/auth/v1/recover'), {
-      method: 'POST',
-      body: { email: String(email || '').trim() },
-      headers: { 'X-Client-Info': 'studyflow' }
-    });
-  }
-
-  function setPassword(password) {
-    return withToken(function (token) {
-      return call('/auth/v1/user', { method: 'PUT', token: token, body: { password: password } });
-    });
-  }
-
-  function setName(name) {
-    return withToken(function (token) {
-      return call('/auth/v1/user', {
-        method: 'PUT', token: token, body: { data: { name: String(name || '').trim() } }
-      });
-    }).then(function () {
-      if (session) { session.user.name = String(name || '').trim(); store(session); }
-    });
-  }
-
-  /** Permanently delete the account's stored data, then the session.
-      Deleting the auth user itself needs admin rights, so that is handled by a
-      Postgres trigger on the data row — see supabase/schema.sql. */
-  function deleteAccount() {
-    return withToken(function (token) {
-      return fetch(URL_BASE + '/rest/v1/rpc/delete_me', {
+  var supabase = {
+    signUp: function (email, password, name) {
+      return supaRequest(withRedirect('/auth/v1/signup'), {
         method: 'POST',
-        headers: { apikey: ANON, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: '{}'
+        body: { email: email, password: password, data: { name: name }, gotrue_meta_security: {} }
+      }).then(function (r) {
+        /* With email confirmation on — the default, and the right setting —
+           there is no session yet and the student must click the link. */
+        if (r.access_token) {
+          adopt({ access_token: r.access_token, refresh_token: r.refresh_token,
+                  expires_in: r.expires_in, user: supaUser(r.user) });
+          return { session: session, needsConfirmation: false };
+        }
+        /* Supabase returns a user-shaped object with no identities when the
+           address is taken, so that sign-up cannot be used to find out who has
+           an account. Treating it as "check your email" keeps that true. */
+        return { session: null, needsConfirmation: true, email: email };
       });
-    }).then(function () { return signOut(); }, function () { return signOut(); });
-  }
+    },
 
-  /* ---------- Token freshness ----------
-     Access tokens last an hour. Rather than refreshing on a timer (which dies
-     when the tab sleeps, exactly when it is needed), refresh lazily: anything
-     that needs a token asks for a fresh one first. */
+    signIn: function (email, password) {
+      return supaRequest('/auth/v1/token?grant_type=password', {
+        method: 'POST', body: { email: email, password: password }
+      }).then(function (r) {
+        return adopt({ access_token: r.access_token, refresh_token: r.refresh_token,
+                       expires_in: r.expires_in, user: supaUser(r.user) });
+      });
+    },
+
+    signOut: function (token) {
+      return supaRequest('/auth/v1/logout', { method: 'POST', token: token });
+    },
+
+    requestPasswordReset: function (email) {
+      return supaRequest(withRedirect('/auth/v1/recover'), {
+        method: 'POST', body: { email: email }
+      });
+    },
+
+    setPassword: function (password) {
+      return withToken(function (token) {
+        return supaRequest('/auth/v1/user', {
+          method: 'PUT', token: token, body: { password: password }
+        });
+      });
+    },
+
+    deleteAccount: function () {
+      return withToken(function (token) {
+        return supaRequest('/rest/v1/rpc/delete_me', { method: 'POST', token: token, body: {} });
+      });
+    },
+
+    pullDocument: function () {
+      return withToken(function (token) {
+        return supaRequest('/rest/v1/student_data?select=data,updated_at', {
+          token: token, headers: { Accept: 'application/json' }
+        });
+      }).then(function (rows) {
+        if (!rows || !rows.length) return null;
+        return { data: rows[0].data, updatedAt: rows[0].updated_at };
+      });
+    },
+
+    pushDocument: function (doc) {
+      return withToken(function (token) {
+        return supaRequest('/rest/v1/student_data', {
+          method: 'POST',
+          token: token,
+          headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: [{ user_id: session.user.id, data: doc, updated_at: new Date().toISOString() }]
+        });
+      });
+    },
+
+    refresh: function () {
+      return supaRequest('/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST', body: { refresh_token: session.refresh_token }
+      }).then(function (r) {
+        return adopt({ access_token: r.access_token, refresh_token: r.refresh_token,
+                       expires_in: r.expires_in, user: supaUser(r.user) });
+      }, function (err) {
+        /* A rejected refresh token means the session is genuinely over — signed
+           out elsewhere, password changed, revoked. Anything else (offline, a
+           500) must NOT throw the student out of their own app. */
+        if (err.status === 400 || err.status === 401 || err.status === 403) store(null);
+        throw err;
+      });
+    },
+
+    /* ---------- Email links coming back ----------
+       Confirmation and reset links return with tokens in the URL fragment —
+       which is also the router's home, so they have to be consumed and cleared
+       before routing. Otherwise the app would try to navigate to
+       "#access_token=…", and the tokens would sit in the address bar, in
+       history, and in any link the student pasted to a friend. */
+    consumeUrl: function () {
+      var hash = location.hash || '';
+      var search = location.search || '';
+
+      function clearFragment() {
+        try { history.replaceState(null, '', location.pathname); }
+        catch (e) { location.hash = ''; }
+      }
+
+      var errSource = /error/.test(hash) ? hash.replace(/^#/, '')
+        : (/error/.test(search) ? search.replace(/^\?/, '') : '');
+      if (errSource) {
+        var ep = new URLSearchParams(errSource);
+        if (ep.get('error') || ep.get('error_code')) {
+          var code = ep.get('error_code') || ep.get('error') || '';
+          var desc = (ep.get('error_description') || '').replace(/\+/g, ' ');
+          clearFragment();
+          return {
+            type: 'error',
+            message: /expired|invalid/i.test(code + ' ' + desc)
+              ? 'That link has expired or has already been used. Request a new one below.'
+              : (desc || 'That link could not be used. Request a new one below.')
+          };
+        }
+      }
+
+      if (hash.indexOf('access_token=') === -1) return null;
+
+      var p = new URLSearchParams(hash.replace(/^#/, ''));
+      var at = p.get('access_token');
+      var rt = p.get('refresh_token');
+      var kind = p.get('type') || '';
+      clearFragment();
+      if (!at || !rt) return null;
+
+      /* Trust but verify: ask who this token belongs to rather than decoding
+         it here, so a malformed or foreign one fails now instead of halfway
+         through the app. */
+      return supaRequest('/auth/v1/user', { token: at }).then(function (u) {
+        adopt({
+          access_token: at, refresh_token: rt,
+          expires_in: parseInt(p.get('expires_in'), 10) || 3600,
+          user: supaUser(u)
+        });
+        return { type: kind === 'recovery' ? 'recovery' : 'confirmed', session: session };
+      }, function () {
+        return { type: 'error', message: 'That link has expired or has already been used. Request a new one below.' };
+      });
+    }
+  };
+
+  /* ══════════════════════ The one in use ══════════════════════ */
+
+  var back = MODE === 'builtin' ? builtin : MODE === 'supabase' ? supabase : null;
+
+  /* ---------- Keeping the token usable ----------
+     Rather than refreshing on a timer — which dies when the tab sleeps, which
+     is exactly when it is needed — refresh lazily: anything needing a token
+     asks for a fresh one first. */
 
   var refreshing = null;
 
@@ -267,34 +450,25 @@
     if (refreshing) return refreshing;
     if (!session) return Promise.reject(AuthError('Not signed in', 401));
 
-    refreshing = call('/auth/v1/token?grant_type=refresh_token', {
-      method: 'POST',
-      body: { refresh_token: session.refresh_token }
-    }).then(function (json) {
+    refreshing = Promise.resolve(back.refresh()).then(function (s) {
       refreshing = null;
-      return adopt(json);
+      return s;
     }, function (err) {
       refreshing = null;
-      /* A rejected refresh token means the session is genuinely over — signed
-         out elsewhere, password changed, or token revoked. Anything else
-         (offline, 500) must NOT throw the student out of their own app. */
-      if (err.status === 400 || err.status === 401 || err.status === 403) store(null);
       throw err;
     });
     return refreshing;
   }
 
-  /** Run fn with a valid access token, refreshing first if it is due. */
   function withToken(fn) {
     if (!session) return Promise.reject(AuthError('Not signed in', 401));
-    var fresh = Date.now() < session.expires_at
-      ? Promise.resolve(session)
-      : refresh();
+
+    var fresh = Date.now() < session.expires_at ? Promise.resolve(session) : refresh();
 
     return fresh.then(function (s) {
       return Promise.resolve(fn(s.access_token)).catch(function (err) {
-        /* Rejected anyway — one retry after a forced refresh covers a clock
-           skew or a token revoked mid-flight. */
+        /* Rejected anyway — one retry after a forced refresh covers clock skew
+           or a token revoked mid-flight. */
         if (err && err.status === 401) {
           return refresh().then(function (s2) { return fn(s2.access_token); });
         }
@@ -303,100 +477,66 @@
     });
   }
 
-  /* ---------- Email links coming back ----------
-     Confirmation and password-reset links return to the app with tokens in the
-     URL fragment. That fragment is also our router's home, so it has to be
-     consumed and cleared before routing — otherwise the app would try to
-     navigate to "#access_token=…" and the tokens would sit in the address bar,
-     in history, and in any link the student pasted to a friend. */
+  /* ---------- Public surface ---------- */
 
-  function consumeUrl() {
-    var hash = location.hash || '';
-    var search = location.search || '';
-    var result = null;
-
-    function clearFragment() {
-      /* replaceState rather than assigning location.hash, so no history entry
-         and no hashchange — the router has not started yet. */
-      try {
-        history.replaceState(null, '', location.pathname);
-      } catch (e) {
-        location.hash = '';
-      }
-    }
-
-    /* Errors arrive in either place depending on where they were detected. */
-    var errSource = /error/.test(hash) ? hash.replace(/^#/, '') : (/error/.test(search) ? search.replace(/^\?/, '') : '');
-    if (errSource) {
-      var ep = new URLSearchParams(errSource);
-      if (ep.get('error') || ep.get('error_code')) {
-        var code = ep.get('error_code') || ep.get('error') || '';
-        var desc = (ep.get('error_description') || '').replace(/\+/g, ' ');
-        clearFragment();
-        return {
-          type: 'error',
-          message: /expired|invalid/i.test(code + ' ' + desc)
-            ? 'That link has expired or has already been used. Request a new one below.'
-            : (desc || 'That link could not be used. Request a new one below.')
-        };
-      }
-    }
-
-    if (hash.indexOf('access_token=') !== -1) {
-      var p = new URLSearchParams(hash.replace(/^#/, ''));
-      var at = p.get('access_token');
-      var rt = p.get('refresh_token');
-      var kind = p.get('type') || '';
-      clearFragment();
-
-      if (at && rt) {
-        /* Trust but verify: fetch the user this token belongs to rather than
-           decoding the JWT here, so a malformed or foreign token fails now
-           instead of halfway through the app. */
-        result = call('/auth/v1/user', { token: at }).then(function (user) {
-          adopt({
-            access_token: at,
-            refresh_token: rt,
-            expires_in: parseInt(p.get('expires_in'), 10) || 3600,
-            user: user
-          });
-          return { type: kind === 'recovery' ? 'recovery' : 'confirmed', session: session };
-        }, function () {
-          return { type: 'error', message: 'That link has expired or has already been used. Request a new one below.' };
-        });
-        return result;
-      }
-    }
-
-    return null;
+  function notSupported(what) {
+    return function () {
+      return Promise.reject(AuthError(what + ' is not available on this site.', 400));
+    };
   }
-
-  /* ---------- Boot ---------- */
 
   session = readStored();
 
-  function user() { return session ? session.user : null; }
-  function isSignedIn() { return !!session; }
+  function signOut() {
+    var token = session && session.access_token;
+    store(null);
+    if (!token || !back) return Promise.resolve();
+    /* Revoke on the server too, but a failure here must not leave someone
+       logged in on a shared computer — the local session is already gone. */
+    return Promise.resolve(back.signOut(token)).catch(function () { /* expired, or offline */ });
+  }
 
   window.SFAuth = {
     enabled: enabled,
-    isSignedIn: isSignedIn,
-    user: user,
+    provider: provider,
+    can: can,
+    isSignedIn: function () { return !!session; },
+    user: function () { return session ? session.user : null; },
     onChange: onChange,
 
-    signUp: signUp,
-    signIn: signIn,
+    signUp: function (email, password, name) {
+      if (!back) return notSupported('Signing up')();
+      return back.signUp(String(email || '').trim(), password, String(name || '').trim());
+    },
+    signIn: function (email, password) {
+      if (!back) return notSupported('Logging in')();
+      return back.signIn(String(email || '').trim(), password);
+    },
     signOut: signOut,
-    requestPasswordReset: requestPasswordReset,
-    setPassword: setPassword,
-    setName: setName,
-    deleteAccount: deleteAccount,
 
-    withToken: withToken,
-    consumeUrl: consumeUrl,
+    requestPasswordReset: function (email) {
+      if (!back || !back.requestPasswordReset) return notSupported('Emailed password reset')();
+      return back.requestPasswordReset(String(email || '').trim());
+    },
+    recoverWithCode: function (email, code, password) {
+      if (!back || !back.recoverWithCode) return notSupported('Recovery by code')();
+      return back.recoverWithCode(String(email || '').trim(), code, password);
+    },
+    setPassword: function (password) {
+      if (!back) return notSupported('Changing a password')();
+      return back.setPassword(password);
+    },
+    deleteAccount: function () {
+      if (!back) return notSupported('Deleting an account')();
+      return Promise.resolve(back.deleteAccount()).then(signOut, signOut);
+    },
 
-    /* Exposed for the sync layer and for tests. */
-    url: function () { return URL_BASE; },
-    anonKey: function () { return ANON; }
+    /* The diploma itself. Keeping the transport here rather than in sync.js is
+       what lets the two backends differ without sync.js knowing. */
+    pullDocument: function () { return back ? back.pullDocument() : Promise.resolve(null); },
+    pushDocument: function (doc) { return back ? back.pushDocument(doc) : Promise.resolve(); },
+
+    consumeUrl: function () { return back ? back.consumeUrl() : null; },
+    withToken: withToken
   };
 })();

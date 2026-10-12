@@ -66,6 +66,8 @@
       : step === 'login'    ? viewLogIn()
       : step === 'forgot'   ? viewForgot()
       : step === 'sent'     ? viewSent()
+      : step === 'code'     ? viewCode()
+      : step === 'usecode'  ? viewUseCode()
       : step === 'recovery' ? viewRecovery()
       : step === 'conflict' ? viewConflict()
       : viewChoose();
@@ -196,6 +198,11 @@
           if (res.needsConfirmation) {
             return go('sent', { kind: 'confirm', email: ctx.email });
           }
+          /* The code is shown once and never retrievable — only its hash is
+             kept. If we went straight to the dashboard it would be gone. */
+          if (res.recoveryCode) {
+            return go('code', { recoveryCode: res.recoveryCode, next: 'signedIn' });
+          }
           afterSignIn();
         }, function (err) {
           busy(submit, false);
@@ -220,7 +227,12 @@
         ),
         h('p.auth__legal',
           'We store your name, email and the diploma data you enter. Nothing else, no ' +
-          'tracking, and nothing is shared. You can delete the whole account from Settings.')
+          'tracking, and nothing is shared. You can delete the whole account from Settings.',
+          SFAuth.can().recoveryCode
+            ? [' ', h('b', 'This site cannot send email'), ', so your address is just a ' +
+               'username — we never check that it is yours. You will get a recovery code ' +
+               'to save, which is the only way back in if you forget your password.']
+            : null)
       )
     ];
   }
@@ -250,7 +262,13 @@
       h('div.auth__row',
         h('button.link', {
           type: 'button',
-          onclick: function () { go('forgot', { email: email.input.value.trim() }); }
+          /* Where this leads depends on what the backend can do: an emailed
+             link where there is email, the recovery code where there is not.
+             Offering a reset we cannot send would be worse than useless. */
+          onclick: function () {
+            go(SFAuth.can().recoveryCode ? 'usecode' : 'forgot',
+               { email: email.input.value.trim() });
+          }
         }, 'Forgot your password?')
       ),
       h('div.auth__submit', submit)
@@ -332,6 +350,147 @@
             onclick: function () { go(reset ? 'forgot' : 'signup', { email: ctx.email }); }
           }, reset ? 'Send it again' : 'Use a different email')
         )
+      )
+    ];
+  }
+
+  /* ---------- The recovery code ----------
+     Shown once, because only its hash is kept. Everything on this screen is
+     built around that single fact: it is large, it is copyable, and the way
+     onward is deliberately a confirmation rather than a plain "Next", because
+     a student who clicks past it has lost the only way back into their own
+     account. */
+
+  function viewCode() {
+    var confirmed = false;
+    var proceed = h('button.btn.btn--primary.btn--lg.onb__primary', {
+      type: 'button',
+      disabled: true,
+      onclick: function () {
+        if (ctx.next === 'signedIn') return afterSignIn();
+        finish({ signedIn: true });
+      }
+    }, 'I have saved it — continue');
+
+    var tick = h('label.auth__confirm',
+      h('input', {
+        type: 'checkbox',
+        onchange: function (e) {
+          confirmed = e.target.checked;
+          proceed.disabled = !confirmed;
+        }
+      }),
+      h('span', 'I have written this down somewhere safe')
+    );
+
+    function copy() {
+      var done = function (ok) {
+        var b = overlay.querySelector('.auth__copy');
+        if (b) b.textContent = ok ? 'Copied' : 'Press Ctrl+C to copy';
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ctx.recoveryCode).then(function () { done(true); },
+          function () { selectCode(); done(false); });
+      } else {
+        selectCode();
+        done(false);
+      }
+    }
+
+    /* Fallback where the clipboard API is unavailable or refused: select the
+       text so the keyboard shortcut works. */
+    function selectCode() {
+      var el = overlay.querySelector('.auth__code');
+      if (!el || !window.getSelection) return;
+      var range = document.createRange();
+      range.selectNodeContents(el);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    return [
+      h('div.onb__body.onb__body--center',
+        h('div.auth__envelope', icon('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')),
+        h('h2.onb__title', 'Save your recovery code'),
+        h('p.onb__lede',
+          'This site cannot send email, so there is no "reset my password" link. ' +
+          'This code is the only way back into your account if you forget your password.'),
+
+        h('p.auth__code', { tabindex: '0', 'aria-label': 'Your recovery code: ' + ctx.recoveryCode },
+          ctx.recoveryCode),
+
+        h('div.auth__acts',
+          h('button.btn.btn--ghost.auth__copy', { type: 'button', onclick: copy }, 'Copy it'),
+          tick,
+          proceed
+        ),
+
+        h('p.auth__small',
+          'Keep it somewhere that is not this computer — a password manager, or ' +
+          'written down. We cannot show it to you again and we cannot look it up: ' +
+          'only a scrambled version is stored.')
+      )
+    ];
+  }
+
+  /** Using that code to get back in. The built-in backend's answer to a reset. */
+  function viewUseCode() {
+    var email = field({ id: 'au-email', label: 'Email', type: 'email', value: ctx.email || '',
+      placeholder: 'you@school.org', autocomplete: 'email', inputmode: 'email' });
+    var code = field({ id: 'au-code', label: 'Recovery code', value: '',
+      placeholder: 'XXXX-XXXX-XXXX-XXXX', autocomplete: 'off',
+      hint: 'The code you saved when you created the account. Dashes and case do not matter.' });
+    var pw = field({ id: 'au-pw', label: 'New password', type: 'password',
+      autocomplete: 'new-password', hint: 'At least ' + MIN_PASSWORD + ' characters.' });
+    var pw2 = field({ id: 'au-pw2', label: 'New password again', type: 'password',
+      autocomplete: 'new-password' });
+
+    var submit = h('button.btn.btn--primary.btn--lg.onb__primary', { type: 'submit' }, 'Get back into my account');
+    submit.dataset.label = 'Get back into my account';
+
+    var form = h('form.auth__form', {
+      onsubmit: function (e) {
+        e.preventDefault();
+        var addr = email.input.value.trim();
+        if (pw.input.value.length < MIN_PASSWORD) {
+          return go('usecode', { error: 'Use a password of at least ' + MIN_PASSWORD + ' characters.', email: addr });
+        }
+        if (pw.input.value !== pw2.input.value) {
+          return go('usecode', { error: 'Those two passwords are not the same.', email: addr });
+        }
+
+        busy(submit, true, 'Checking…');
+        SFAuth.recoverWithCode(addr, code.input.value, pw.input.value).then(function (res) {
+          /* Using a code burns it, so a fresh one is issued and must be shown
+             with the same care as the first. */
+          if (res.recoveryCode) {
+            return go('code', { recoveryCode: res.recoveryCode, next: 'signedIn' });
+          }
+          afterSignIn();
+        }, function (err) {
+          busy(submit, false);
+          go('usecode', { error: err.message, email: addr });
+        });
+      }
+    }, email.el, code.el, pw.el, pw2.el, h('div.auth__submit', submit));
+
+    return [
+      h('div.onb__body',
+        h('p.onb__eyebrow', 'Account recovery'),
+        h('h2.onb__title', 'Use your recovery code'),
+        h('p.onb__lede',
+          'Enter the code you saved when you created the account, and choose a new ' +
+          'password. Everywhere you are currently logged in will be signed out.'),
+        banners(),
+        form,
+        h('p.auth__foot',
+          h('button.link', { type: 'button', onclick: function () { go('login', { email: ctx.email }); } },
+            '← Back to logging in')),
+        h('p.auth__small',
+          'Lost the code as well? Then nobody can get into that account — not you ' +
+          'and not us, which is the same property that keeps it yours. You can create ' +
+          'a new account with a different email address.')
       )
     ];
   }
