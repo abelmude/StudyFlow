@@ -16,7 +16,7 @@
 <meta name="robots" content="noindex">
 
 <link rel="stylesheet" href="app.css">
-<script>document.documentElement.classList.add('js');</script>
+<script src="boot.js"></script>
 </head>
 <body>
 
@@ -161,33 +161,5 @@
 <script src="onboarding.js"></script>
 <script src="authview.js"></script>
 <script src="app.js"></script>
-<script>
-  // Registered after load so it never competes with first paint. The app keeps
-  // its data locally, so caching the shell makes it genuinely usable offline.
-  if ('serviceWorker' in navigator) {
-    addEventListener('load', function () {
-      navigator.serviceWorker.register('/sw.js').catch(function () { /* unsupported or blocked */ });
-    });
-
-    // The worker calls skipWaiting() and clients.claim(), so a new build takes
-    // over this page as soon as it installs — but the scripts and styles this
-    // page is already running came from the old one. Saying so is the whole
-    // difference between "the update never shipped" and "you have not reloaded
-    // yet", which from inside the app used to look identical.
-    var hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.addEventListener('controllerchange', function () {
-      // On a first-ever visit there is nothing stale to warn about: this page
-      // came from the network a moment ago.
-      if (!hadController) { hadController = true; return; }
-      var bar = document.getElementById('sw-update');
-      if (bar) bar.hidden = false;
-    });
-  }
-
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest || !e.target.closest('#sw-update-go')) return;
-    location.reload();
-  });
-</script>
 </body>
 </html>

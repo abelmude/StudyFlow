@@ -20,7 +20,7 @@ const css = read('app.css');
    them. A single-file bundle has no deploy step to fill config.js in, so
    accounts are simply off in a prototype — which is correct: the whole point
    of the one-file build is that it runs from a file:// URL with no backend. */
-const scripts = ['config.js', 'dom.js', 'store.js', 'auth.js', 'sync.js',
+const scripts = ['boot.js', 'config.js', 'dom.js', 'store.js', 'auth.js', 'sync.js',
                  'ical.js', 'onboarding.js', 'authview.js', 'app.js']
   .map(f => ({ f, src: read(f) }));
 

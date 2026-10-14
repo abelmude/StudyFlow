@@ -46,15 +46,20 @@
   function enabled() { return MODE === 'builtin' || MODE === 'supabase'; }
   function provider() { return enabled() ? MODE : ''; }
 
+  /* Whether a reset email can actually be delivered. Decided at build time,
+     because the login screen has to know before it draws which route to offer,
+     and offering one that can never arrive is worse than offering none. */
+  var MAIL = MODE === 'supabase' || !!cfg.emailReset;
+
   /** What this backend can actually do, so the UI never offers what it cannot. */
   function can() {
     return {
-      /* Does the address get verified? */
+      /* Is the address confirmed before the account works? */
       verifiesEmail: MODE === 'supabase',
       /* Is there a "we emailed you a link" path? */
-      emailReset: MODE === 'supabase',
-      /* Or a code the student has to keep? */
-      recoveryCode: MODE === 'builtin'
+      emailReset: MAIL,
+      /* Or a code the student has to keep, because nothing can be sent? */
+      recoveryCode: MODE === 'builtin' && !MAIL
     };
   }
 
@@ -245,8 +250,32 @@
       });
     },
 
-    /* No email links, so nothing ever comes back in the URL. */
-    consumeUrl: function () { return null; },
+    requestPasswordReset: function (email) {
+      return request('/api/auth/forgot', { method: 'POST', body: { email: email } });
+    },
+
+    /** Spending a link from the inbox. The token is not a session — it is the
+        single thing that proves the inbox was reached — so this is the one
+        call that sets a password without being signed in. */
+    resetWithToken: function (token, password) {
+      return request('/api/auth/reset', {
+        method: 'POST', body: { token: token, password: password }
+      }).then(builtin.take);
+    },
+
+    /* A reset link comes back with its token in the fragment, where the router
+       lives, so it has to be taken out and the URL cleaned before anything
+       reads the hash. */
+    consumeUrl: function () {
+      var hash = location.hash || '';
+      if (hash.indexOf('reset_token=') === -1) return null;
+
+      var token = new URLSearchParams(hash.replace(/^#/, '')).get('reset_token');
+      try { history.replaceState(null, '', location.pathname); }
+      catch (e) { location.hash = ''; }
+
+      return token ? { type: 'reset', resetToken: token } : null;
+    },
 
     /* Tokens are long-lived and not refreshable: when one expires, logging in
        again is the honest answer rather than a silent half-session. */
@@ -517,6 +546,10 @@
     requestPasswordReset: function (email) {
       if (!back || !back.requestPasswordReset) return notSupported('Emailed password reset')();
       return back.requestPasswordReset(String(email || '').trim());
+    },
+    resetWithToken: function (token, password) {
+      if (!back || !back.resetWithToken) return notSupported('Resetting by link')();
+      return back.resetWithToken(token, password);
     },
     recoverWithCode: function (email, code, password) {
       if (!back || !back.recoverWithCode) return notSupported('Recovery by code')();

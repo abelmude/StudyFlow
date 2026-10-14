@@ -14,6 +14,9 @@ StudyFlow can run two ways, and the app is complete either way.
 **Deploy this repository to Netlify and accounts already work.** There is
 nothing to sign up for and nothing to configure.
 
+Add two environment variables and forgotten passwords get a real reset email
+too — see *Password reset by email* below.
+
 The accounts server is `netlify/functions/api.mjs`, in this repository. It runs
 as a Netlify Function with Netlify Blobs underneath, both included in the free
 tier. The build turns accounts on automatically when it detects it is running
@@ -24,37 +27,58 @@ do, and the option that can.
 
 ---
 
-## What the built-in server cannot do: send email
+## Password reset by email
 
-There is no mail provider behind it, so it sends nothing. Two consequences,
-both shown plainly in the app rather than buried:
+Out of the box the built-in server cannot send email — there is no mail
+provider behind it — so it falls back to issuing a one-time **recovery code**
+at sign-up. That works, but people lose codes.
 
-**1. An email address is not verified.** It is a username that happens to look
-like an email. Someone could sign up as a name that is not theirs. They gain
-nothing by it — they still cannot read anybody else's data — but it is not
-proof of identity and must not be treated as one.
+**To send real reset links instead, add two environment variables.** About five
+minutes, free, no code.
 
-**2. There is no "email me a reset link".** Instead, signing up issues a
-one-time **recovery code**, shown once on a screen the student has to tick to
-leave. That code is the only way back in after a forgotten password.
+1. Sign up at [resend.com](https://resend.com) and create an **API key**.
+   The free tier is 3,000 emails a month, which is far more than a school needs
+   for password resets.
+2. Decide what the email comes *from*:
+   - **Testing, right now:** use `onboarding@resend.dev`. It works immediately
+     with no DNS, but Resend will only deliver it to the address you signed up
+     with. Fine for checking the flow, useless for real students.
+   - **Real use:** add your own domain in Resend and follow its DNS steps, then
+     send from something like `noreply@yourdomain.com`.
+3. In Netlify, **Site configuration → Environment variables**, add both:
 
-That second point is not a shortcut, it is the only honest option: if the
-server could restore an account without something only the owner holds, so
-could anyone who asked it to. The trade is real, though — a student who loses
-both their password and their code has lost that account, and nobody can undo
-it.
+   | Key | Value |
+   | --- | --- |
+   | `RESEND_API_KEY` | `re_...` |
+   | `MAIL_FROM` | `StudyFlow <noreply@yourdomain.com>` |
 
-### What it does do
+4. **Deploys → Trigger deploy**.
 
-- Passwords hashed with scrypt and a per-password salt, never stored or logged
-  in any readable form
-- Signed session tokens; logging out, changing a password or using a recovery
-  code invalidates every token already issued, on every device
-- Rate limiting per account and per address, so a password cannot be guessed at
-  by a script
-- One student's data is keyed by an account id taken from the signed token, so
-  there is no request shape that could ask for someone else's
-- Delete-my-account really deletes: the row, the diploma and the login
+The build prints which route is active, and refuses to deploy with only one of
+the two set — half-configured mail is the worst outcome, because the app would
+offer a reset that silently never arrives.
+
+Once it is on, the recovery-code screen disappears, "Forgot your password?"
+sends a link, and `/version.json` reports `"emailReset": true`.
+
+### What the reset link does
+
+It is valid for **one hour** and works **once**. Opening it proves control of
+the inbox, so it sets a new password and signs you straight in — and signs out
+every other device, because the reason for being there may be that somebody
+else had the old password.
+
+Asking for a reset always answers the same way whether or not the address has
+an account, including when rate limited. Otherwise the form becomes a way to
+find out who has signed up.
+
+### Either way, addresses are not verified at sign-up
+
+Neither mode confirms the address when the account is created, so an address is
+a username rather than proof of identity. Someone could sign up as a name that
+is not theirs; they gain nothing by it, since they still cannot read anybody
+else's data, and with email reset on, the real owner can take the account over
+by asking for a reset link.
 
 ---
 
@@ -152,6 +176,65 @@ on every device"** with *Create an account* instead of the tour.
 Make a real account with your own email, confirm it, add a subject and a
 deadline, then open the site on your phone and log in. Your deadline should be
 there.
+
+---
+
+## "This site is not secure"
+
+Several different warnings get described this way and they have different
+causes, so start by reading the exact words.
+
+### "Not secure" in the address bar, no full-page warning
+
+The page was loaded over plain HTTP. Netlify issues a certificate
+automatically, but it has to be switched on and enforced:
+
+1. Netlify → **Domain management → HTTPS**. If it says the certificate is
+   still provisioning, wait — it is usually minutes, and up to 24 hours after
+   a DNS change.
+2. Turn on **Force HTTPS**. That redirects HTTP to HTTPS for everyone.
+3. The site also sends `Strict-Transport-Security`, so after one successful
+   HTTPS visit the browser will not even try HTTP again.
+
+### A full red page: "Deceptive site ahead" or "Dangerous site"
+
+This is Google Safe Browsing, not a certificate problem. A brand-new site that
+asks for an email and password on a free `*.netlify.app` subdomain is a shape
+phishing campaigns use constantly, and the classifier is aggressive about it.
+Nothing in the code is wrong.
+
+What actually fixes it:
+
+1. **Use your own domain.** This is the real fix. A site on its own domain is
+   judged on its own; one on a shared subdomain inherits whatever else is
+   hosted there. Netlify → Domain management → Add a domain.
+2. **Ask for a review.** Add the site in
+   [Google Search Console](https://search.google.com/search-console), open
+   **Security & Manual Actions → Security issues**, and request a review. It
+   usually clears in a few days.
+
+### "Your connection is not private" (NET::ERR_CERT_…)
+
+A certificate problem rather than a warning about the site. Usual causes: a
+custom domain was added but its DNS does not point at Netlify yet, the
+certificate has not finished provisioning, or the computer's clock is wrong.
+Netlify → Domain management → HTTPS → **Renew certificate** after the DNS is
+correct.
+
+### A warning only when you click into the password box
+
+Chrome says a form is not secure when the page is not on HTTPS. Same fix as the
+first case.
+
+### What the site already does about it
+
+Served over HTTPS with HSTS, so there is no second chance to downgrade it. A
+Content-Security-Policy that allows scripts only from the site's own origin
+with no inline execution at all, which is what makes injected script hard —
+and matters here because the session token is in `localStorage`. No CDN, no web
+fonts, no analytics and no trackers, so there is no third party to trust. All
+of it is generated at deploy time by `scripts/write-config.js` into `_headers`;
+`curl -I https://your-site/` shows exactly what is sent.
 
 ---
 
