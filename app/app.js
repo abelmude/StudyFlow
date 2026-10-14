@@ -1871,7 +1871,7 @@
   /* Tokens and link errors from a confirmation or reset email, as they look in
      the URL. Matched against the hash, which is where the implicit flow puts
      them. */
-  var AUTH_HASH = /(^|[#&])(access_token|error|error_code|error_description)=/;
+  var AUTH_HASH = /(^|[#&])(access_token|reset_token|error|error_code|error_description)=/;
 
   window.addEventListener('hashchange', function () {
     /* An email link points at /app/, so if that page is already open in the
@@ -1964,14 +1964,35 @@
        fragment — the same place the router lives. Consume it before anything
        reads the hash. */
     Promise.resolve(SFAuth.consumeUrl()).then(function (link) {
-      if (link && link.type === 'recovery') return gate({ start: 'recovery', allowLocal: false });
+      /* 'recovery' is Supabase signing the student in from the link; 'reset' is
+         the built-in server handing over a single-use token instead. Both land
+         on the same "choose a new password" screen. */
+      if (link && (link.type === 'recovery' || link.type === 'reset')) {
+        return gate({ start: 'recovery', allowLocal: false, resetToken: link.resetToken });
+      }
       if (link && link.type === 'error') return gate({ start: 'login', error: link.message });
       if (link && link.type === 'confirmed') toast('Email confirmed — you are signed in');
 
       if (!SFAuth.isSignedIn()) {
-        /* Not signed in. Someone who opted out of accounts, or who has local
-           data from before accounts existed, carries on locally. */
-        if (localOnly() || SF.hasAccount()) return afterAccount();
+        /* Someone who deliberately opted out of accounts carries on locally. */
+        if (localOnly()) return afterAccount();
+
+        /* This device has synced before, so it was signed in and no longer is:
+           the session expired, or a password change or logout elsewhere ended
+           it. Dropping silently into an unsynced local copy would leave them
+           editing a diploma that never reaches their account again, so say so
+           and offer the way back. The data stays where it is either way. */
+        if (window.SFSync && SFSync.hadSession()) {
+          return gate({
+            start: 'login',
+            message: 'You have been signed out — your session ended, or the password ' +
+                     'was changed somewhere else. Your work on this device is safe; ' +
+                     'log in to put it back in sync.'
+          });
+        }
+
+        /* Local data from before accounts existed: leave it alone. */
+        if (SF.hasAccount()) return afterAccount();
         return gate({ start: SF.hasSavedAccount() ? 'login' : 'choose' });
       }
 
@@ -1985,6 +2006,21 @@
         if (res.action === 'conflict') {
           return gate({ start: 'conflict', remote: res.remote, summary: res.summary, allowLocal: false });
         }
+
+        /* The stored session looked fine — it had not expired by the clock —
+           but the server rejected it, so reconcile dropped it. That means a
+           password change or a logout somewhere else. Carrying on would leave
+           them editing a diploma that silently never reaches their account
+           again, so say what happened and offer the way back. */
+        if (!SFAuth.isSignedIn()) {
+          return gate({
+            start: 'login',
+            message: 'You have been signed out — your session ended, or the password ' +
+                     'was changed somewhere else. Your work on this device is safe; ' +
+                     'log in to put it back in sync.'
+          });
+        }
+
         if (res.action === 'error') toast('Signed in — but your account could not be reached');
         afterAccount();
       });

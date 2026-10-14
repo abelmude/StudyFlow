@@ -249,7 +249,14 @@
     if (SFAuth.isSignedIn()) setStatus(deviceChanged() ? 'idle' : 'saved');
 
     SFAuth.onChange(function (s) {
-      if (!s) { writeMark(null); pending = false; lastSyncedAt = null; setStatus('off'); }
+      /* The mark is deliberately left alone. Losing a session is not the same
+         as leaving: an expired token, or a password changed on another device,
+         drops the session while the diploma stays right here — and the mark is
+         how the app knows this browser belongs to an account and should be
+         offered a way back rather than quietly becoming a local-only copy.
+         Logging out, deleting the account and starting over all clear the data
+         and call clearMark() themselves. */
+      if (!s) { pending = false; lastSyncedAt = null; setStatus('off'); }
     });
 
     /* Coming back online is the moment a queued push should go. */
@@ -273,6 +280,10 @@
     keepDevice: keepDevice,
     keepServer: keepServer,
     deviceChanged: deviceChanged,
+    /* A mark only exists once this device has synced, so its presence is how
+       the app knows the browser was signed in to an account — even after the
+       session itself is gone. */
+    hadSession: function () { return !!readMark(); },
     describe: describe,
     clearMark: function () { writeMark(null); }
   };

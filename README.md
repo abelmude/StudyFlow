@@ -96,7 +96,8 @@ To serve the app at the root instead, add to `netlify.toml`:
 | `netlify/functions/api.mjs` | The built-in accounts server — sign-up, login, recovery, sync |
 | `supabase/schema.sql` | For the Supabase option: the table, its security rules and delete-my-account |
 | `package.json` | One dependency, used only by the server-side function |
-| `scripts/write-config.js` | The build step: config, version stamp, cache name |
+| `boot.js`, `app/boot.js` | The pre-paint and service-worker scripts, kept out of the HTML so the CSP can forbid inline script |
+| `scripts/write-config.js` | The build step: config, version stamp, cache name, security headers |
 | `SETUP.md` | How to switch accounts on |
 | `manifest.webmanifest` | Makes the app installable |
 | `sw.js` | Service worker — offline support |
@@ -325,12 +326,20 @@ per account and per address. A student's diploma is keyed by an account id
 taken from the signed token, so there is no request shape that could ask for
 someone else's.
 
-What it cannot do is **send email**, because there is no mail provider behind
-it. So an address is a username rather than a verified identity, and instead of
-a reset link, signing up issues a one-time **recovery code** shown once. That is
-not a shortcut: if the server could restore an account without something only
-the owner holds, so could anyone who asked it to. The app says all of this on
-the sign-up screen rather than burying it.
+**Forgotten passwords get a real reset email** once `RESEND_API_KEY` and
+`MAIL_FROM` are set — about five minutes, free. The link lasts an hour, works
+once, and signs out every other device, because the reason for using it may be
+that somebody else had the old password.
+
+With no mail provider configured the server cannot send anything, so it falls
+back to issuing a one-time **recovery code** at sign-up instead. The app says
+which of the two is in force on the sign-up screen rather than burying it, and
+the build refuses to deploy with only one of the two variables set — mail that
+looks configured and silently sends nothing is the worst of the three states.
+
+Neither mode verifies the address at sign-up, so an address is a username
+rather than proof of identity. With email reset on, the real owner of an
+address can take an account over by asking for a link.
 
 ### Supabase — when you want verified email
 
@@ -402,6 +411,11 @@ only you can make, so sending opens your own mail client.
 - **No third-party scripts.** No CDNs, web fonts, analytics or trackers, and no
   dependencies in anything a browser downloads. The only network request the app
   makes is to its own accounts server, and only once you are signed in.
+- **A real Content-Security-Policy.** Scripts may load only from the site's own
+  origin, with no inline execution anywhere — there is not one `<script>` with a
+  body in the whole site. That is what makes injected script hard to run, and it
+  matters here because the session token lives in `localStorage`. Generated at
+  deploy time into `_headers`, alongside HSTS.
 - **Backend optional.** With none, there are no accounts and no database: all
   data stays in the browser under `studyflow-data-v1`. With one, that stays
   true as well — the browser copy is what makes it work offline.

@@ -14,24 +14,23 @@
  * site and accounts work.
  *
  * ──────────────────────────────────────────────────────────────────────────
- * What it deliberately does NOT do
+ * Forgotten passwords
  * ──────────────────────────────────────────────────────────────────────────
- * It sends no email, because there is no mail provider here to send one. Two
- * consequences, both stated plainly in the app rather than buried:
+ * Set RESEND_API_KEY and MAIL_FROM and this sends a real reset link, which is
+ * what people expect and the route to prefer. Nothing else is needed: no
+ * database, no second service, no code.
  *
- *   1. An address is not verified. It is a username that happens to look like
- *      an email. Someone could sign up as a name that is not theirs — they
- *      gain nothing by it, since they still cannot read anyone else's data,
- *      but it is not proof of identity and must not be treated as such.
- *   2. There is no "email me a reset link". Instead, signing up issues a
- *      one-time RECOVERY CODE, shown once. That code is the only way back in
- *      after a forgotten password, which is exactly how it has to be: if we
- *      could restore an account without something only the owner holds, so
- *      could anyone else.
+ * With no mail provider configured it cannot send anything — no amount of
+ * code makes a server able to deliver email on its own — so it falls back to
+ * issuing a one-time RECOVERY CODE at sign-up, shown once. That fallback
+ * exists so the app is never in the state of offering a reset it cannot
+ * perform, and the sign-up screen says which of the two is in force.
  *
- * If you want verified addresses and emailed resets, point the app at Supabase
- * instead — SETUP.md covers it, and the client speaks both. This backend is
- * the one that works with nothing.
+ * Either way an address is not verified at sign-up. It is a username that
+ * happens to look like an email. Someone could sign up as a name that is not
+ * theirs; they gain nothing by it, since they still cannot read anybody else's
+ * data, and the real owner can take the account over through the reset link.
+ * It is not proof of identity and must not be treated as one.
  *
  * ──────────────────────────────────────────────────────────────────────────
  * How a password is actually stored
@@ -53,6 +52,83 @@ const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
 const MIN_PASSWORD = 8;
 const MAX_DOC_BYTES = 2 * 1024 * 1024;
+
+/* A reset link is a password in an inbox. Short-lived and single-use, so a
+   forwarded or logged URL stops being useful quickly. */
+const RESET_MS = 60 * 60 * 1000;               // 1 hour
+
+/* ---------- Sending email ----------
+   Resend's HTTP API, because it is a single POST with no SDK — which keeps the
+   one dependency this project has to the Blobs client. Configure with:
+
+     RESEND_API_KEY   re_...
+     MAIL_FROM        StudyFlow <noreply@yourdomain.com>
+
+   Without both, mail is simply off and the app falls back to recovery codes
+   rather than offering a reset that would silently never arrive. */
+
+const MAIL_KEY = process.env.RESEND_API_KEY || '';
+const MAIL_FROM = process.env.MAIL_FROM || '';
+const mailEnabled = () => !!(MAIL_KEY && MAIL_FROM);
+
+/**
+ * The site's own address.
+ *
+ * Taken from the environment, never from the request — a reset link built from
+ * a client-supplied host would let anyone have the link point at their own
+ * server, turning "forgot password" into a way to harvest other people's reset
+ * tokens. Netlify sets URL to the site's primary address.
+ */
+function siteUrl(req) {
+  return (process.env.URL || process.env.DEPLOY_PRIME_URL || new URL(req.url).origin)
+    .replace(/\/+$/, '');
+}
+
+async function sendMail({ to, subject, text, html }) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${MAIL_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: MAIL_FROM, to: [to], subject, text, html })
+  });
+  if (!res.ok) {
+    /* Logged for the site owner, never returned to the browser: the response
+       can name the sending domain and the key's state. */
+    console.error('studyflow mail failed', res.status, (await res.text()).slice(0, 500));
+    throw new Error('mail send failed');
+  }
+}
+
+function resetEmail(link, name) {
+  const hello = name ? `Hi ${name},` : 'Hi,';
+  const text = [
+    hello, '',
+    'Someone asked to reset the password on your StudyFlow account.',
+    'Open this link within the next hour to choose a new one:', '',
+    link, '',
+    'The link works once and then stops. If you did not ask for this, you can',
+    'ignore this email — nothing has changed and your password still works.',
+    '', '— StudyFlow'
+  ].join('\n');
+
+  /* Deliberately plain: a table-based, image-heavy template is what phishing
+     filters are trained on, and there is nothing here to decorate. */
+  const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f2f5f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1518">
+<div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #d8e0de;border-radius:5px;padding:28px">
+<p style="margin:0 0 18px;font-size:15px;line-height:1.6">${escapeHtml(hello)}</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.6">Someone asked to reset the password on your StudyFlow account. Choose a new one within the next hour:</p>
+<p style="margin:0 0 22px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#1b3a5c;color:#fff;text-decoration:none;padding:12px 22px;border-radius:4px;font-weight:600;font-size:15px">Choose a new password</a></p>
+<p style="margin:0 0 18px;font-size:13px;line-height:1.6;color:#627178">Or paste this into your browser:<br><span style="word-break:break-all">${escapeHtml(link)}</span></p>
+<p style="margin:0;font-size:13px;line-height:1.6;color:#627178">The link works once and then stops. If you did not ask for this, ignore this email — nothing has changed and your password still works.</p>
+</div></body></html>`;
+
+  return { text, html };
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
 
 /* ---------- Stores ----------
    Strong consistency matters: a student who has just signed up will log in
@@ -311,13 +387,15 @@ async function signup(req, context) {
     return fail(409, 'That email cannot be used to create an account. If it is yours, log in instead.');
   }
 
-  const recoveryCode = newRecoveryCode();
+  /* A code is only issued when there is no email route — otherwise it is one
+     more thing to keep safe in exchange for nothing. */
+  const recoveryCode = mailEnabled() ? null : newRecoveryCode();
   const user = {
     id: crypto.randomUUID(),
     email,
     name,
     password: await hash(password),
-    recovery: await hash(tidyCode(recoveryCode)),
+    recovery: recoveryCode ? await hash(tidyCode(recoveryCode)) : null,
     tokenVersion: 1,
     createdAt: new Date().toISOString()
   };
@@ -325,14 +403,15 @@ async function signup(req, context) {
   await users.setJSON(key, user);
   await store('studyflow-userids').setJSON(user.id, { emailKey: key });
 
-  return json({
+  const out = {
     token: await issueToken(user),
     expiresIn: Math.floor(SESSION_MS / 1000),
-    user: publicUser(user),
-    /* Shown once. It is not stored anywhere in recoverable form — only its
-       hash is kept — so this response is the single chance to write it down. */
-    recoveryCode
-  });
+    user: publicUser(user)
+  };
+  /* Shown once. It is not stored anywhere in recoverable form — only its hash
+     is kept — so this response is the single chance to write it down. */
+  if (recoveryCode) out.recoveryCode = recoveryCode;
+  return json(out);
 }
 
 async function login(req, context) {
@@ -385,6 +464,96 @@ async function logout(req) {
   return new Response(null, { status: 204 });
 }
 
+/* ---------- Forgotten password, by email ---------- */
+
+/**
+ * Always answers the same way, whether or not the address has an account.
+ * Telling the difference would turn this endpoint into a way to find out who
+ * has signed up — and it is unauthenticated, so anyone could ask.
+ */
+async function forgot(req, context) {
+  const b = await body(req);
+  if (!b) return fail(400, 'That request could not be read.');
+  if (!mailEnabled()) return fail(400, 'This site cannot send email.');
+
+  const email = normaliseEmail(b.email);
+  const same = () => json({ sent: true });
+
+  const perAccount = await rateLimit('forgot', email, 3, 60 * 60 * 1000);
+  const perAddress = await rateLimit('forgot-ip', clientAddress(req, context), 15, 60 * 60 * 1000);
+  /* Even the rate-limit response is the same, or the limit itself becomes the
+     oracle: an address that can be asked about repeatedly is one without an
+     account. */
+  if (!perAccount.ok || !perAddress.ok) return same();
+
+  const user = await store('studyflow-users').get(emailKey(email), { type: 'json' });
+  if (!user) return same();
+
+  /* 32 random bytes, so the token is unguessable on its own and does not need
+     a slow hash — SHA-256 of it is enough to avoid storing the live value. */
+  const token = crypto.randomBytes(32).toString('base64url');
+  await store('studyflow-resets').setJSON(
+    crypto.createHash('sha256').update(token).digest('hex'),
+    { userId: user.id, emailKey: emailKey(email), expiresAt: Date.now() + RESET_MS }
+  );
+
+  const link = `${siteUrl(req)}/app/#reset_token=${token}`;
+  const { text, html } = resetEmail(link, user.name);
+
+  try {
+    await sendMail({ to: user.email, subject: 'Reset your StudyFlow password', text, html });
+  } catch (e) {
+    /* The student is told it was sent either way, because the alternative
+       leaks whether the address exists. The site owner sees the real failure
+       in the function log. */
+    console.error('studyflow: reset email could not be sent');
+  }
+  return same();
+}
+
+/** Spending a reset link: proves control of the inbox, so it sets the password. */
+async function reset(req, context) {
+  const b = await body(req);
+  if (!b) return fail(400, 'That request could not be read.');
+
+  const password = String(b.password || '');
+  if (password.length < MIN_PASSWORD) {
+    return fail(400, `Use a password of at least ${MIN_PASSWORD} characters.`);
+  }
+
+  const perAddress = await rateLimit('reset-ip', clientAddress(req, context), 20, 60 * 60 * 1000);
+  if (!perAddress.ok) return fail(429, 'Too many attempts from here. Try again later.');
+
+  const key = crypto.createHash('sha256').update(String(b.token || '')).digest('hex');
+  const resets = store('studyflow-resets');
+  const entry = await resets.get(key, { type: 'json' });
+
+  const dead = () => fail(401, 'That link has expired or has already been used. Request a new one.');
+  if (!entry) return dead();
+
+  /* Single use: spent before the password is changed, so a replayed link
+     cannot be used twice even if two requests arrive together. */
+  await resets.delete(key);
+  if (Date.now() > entry.expiresAt) return dead();
+
+  const users = store('studyflow-users');
+  const user = await users.get(entry.emailKey, { type: 'json' });
+  if (!user || user.id !== entry.userId) return dead();
+
+  user.password = await hash(password);
+  /* Everything opened with the old password stops working — the reason for
+     being here may be that somebody else had it. */
+  user.tokenVersion = (user.tokenVersion || 1) + 1;
+  await users.setJSON(entry.emailKey, user);
+  await clearRateLimit('login', user.email);
+
+  return json({
+    token: await issueToken(user),
+    expiresIn: Math.floor(SESSION_MS / 1000),
+    user: publicUser(user)
+  });
+}
+
 /** The way back in when the password is gone and there is no email to send to. */
 async function recover(req, context) {
   const b = await body(req);
@@ -410,12 +579,12 @@ async function recover(req, context) {
   const user = await users.get(emailKey(email), { type: 'json' });
 
   const wrong = () => fail(401, 'That email and recovery code do not match an account.');
-  if (!user) { await hash(code); return wrong(); }
+  if (!user || !user.recovery) { await hash(code); return wrong(); }
   if (!(await verify(code, user.recovery))) return wrong();
 
-  const nextCode = newRecoveryCode();
+  const nextCode = mailEnabled() ? null : newRecoveryCode();
   user.password = await hash(password);
-  user.recovery = await hash(tidyCode(nextCode));
+  user.recovery = nextCode ? await hash(tidyCode(nextCode)) : null;
   /* The old password, and every session opened with it, stop working now —
      which is the point, since the reason for being here may be that someone
      else had them. */
@@ -423,12 +592,13 @@ async function recover(req, context) {
   await users.setJSON(emailKey(email), user);
   await clearRateLimit('recover', email);
 
-  return json({
+  const out = {
     token: await issueToken(user),
     expiresIn: Math.floor(SESSION_MS / 1000),
-    user: publicUser(user),
-    recoveryCode: nextCode
-  });
+    user: publicUser(user)
+  };
+  if (nextCode) out.recoveryCode = nextCode;
+  return json(out);
 }
 
 async function changePassword(req) {
@@ -463,6 +633,9 @@ async function deleteMe(req) {
   await store('studyflow-data').delete(user.id).catch(() => {});
   await store('studyflow-userids').delete(user.id).catch(() => {});
   await store('studyflow-users').delete(emailKey(user.email));
+  /* Any reset link already in an inbox must stop working, or it would let the
+     address be claimed back after the account is gone. */
+  await dropResetsFor(user.id);
   return new Response(null, { status: 204 });
 }
 
@@ -499,10 +672,32 @@ async function putData(req) {
 
 /* ========================== Routing ========================== */
 
+/* Reset entries are keyed by the hash of their token, so finding an account's
+   outstanding ones means a scan. There are never many, and this runs only when
+   an account is deleted. */
+async function dropResetsFor(userId) {
+  try {
+    const resets = store('studyflow-resets');
+    const { blobs } = await resets.list();
+    for (const b of blobs) {
+      const entry = await resets.get(b.key, { type: 'json' });
+      if (entry && entry.userId === userId) await resets.delete(b.key);
+    }
+  } catch (e) { /* best effort: the links expire within the hour anyway */ }
+}
+
+/** What this deployment can actually do, so the app never offers what it cannot. */
+async function meta() {
+  return json({ accounts: 'builtin', emailReset: mailEnabled() });
+}
+
 const ROUTES = {
+  'GET /meta': meta,
   'POST /auth/signup': signup,
   'POST /auth/login': login,
   'POST /auth/logout': logout,
+  'POST /auth/forgot': forgot,
+  'POST /auth/reset': reset,
   'POST /auth/recover': recover,
   'POST /auth/password': changePassword,
   'GET /auth/me': me,

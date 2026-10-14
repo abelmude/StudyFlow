@@ -27,6 +27,9 @@
     /* A conflict found during boot is handed straight to the chooser. */
     if (opts.remote) ctx.remote = opts.remote;
     if (opts.summary) ctx.summary = opts.summary;
+    /* Carried from a reset link: the built-in server's reset token, which is
+       not a session and is spent on the next screen. */
+    if (opts.resetToken) ctx.resetToken = opts.resetToken;
 
     /* run() can be reached while a gate or the tour is already up — following
        an email link with the app open does exactly that. Clear the old overlay
@@ -336,7 +339,7 @@
             : 'We have sent a confirmation link to ',
           h('b', ctx.email || 'your email address'),
           reset
-            ? ', a reset link is on its way. Open it on this device and you can set a new password.'
+            ? ', a reset link is on its way. It works once, and only for the next hour.'
             : '. Open it and your account is ready — then come back here and log in.'),
         h('p.auth__small',
           'Nothing after a minute or two? Look in spam, and check the address above for typos. ' +
@@ -516,10 +519,23 @@
           return go('recovery', { error: 'Those two passwords are not the same.' });
         }
         busy(submit, true, 'Saving…');
-        SFAuth.setPassword(pw.input.value).then(function () {
+        /* Two ways to arrive here. Supabase signs the student in from the link
+           and the new password is set on that session; the built-in server
+           hands over a reset token instead, which is not a session and is
+           spent by this one call. */
+        var done = ctx.resetToken
+          ? SFAuth.resetWithToken(ctx.resetToken, pw.input.value)
+          : SFAuth.setPassword(pw.input.value);
+
+        done.then(function () {
           afterSignIn();
         }, function (err) {
           busy(submit, false);
+          /* A spent or expired link cannot be retried on this screen — there is
+             nothing left to retry with — so send them back to ask for another. */
+          if (err.status === 401) {
+            return go('login', { error: err.message, email: ctx.email });
+          }
           go('recovery', { error: err.message });
         });
       }
@@ -531,8 +547,13 @@
         h('p.onb__eyebrow', 'Password reset'),
         h('h2.onb__title', 'Choose a new password'),
         h('p.onb__lede', who && who.email
-          ? 'For ' + who.email + '. You are signed in from the link — set a password and you are done.'
-          : 'You are signed in from the link. Set a password and you are done.'),
+          ? 'For ' + who.email + '. You came in from the link — set a password and you are done.'
+          : 'You came in from the link, which proves the inbox is yours. Set a password ' +
+            'and you are straight into your account.'),
+        h('p.auth__small',
+          'Everywhere you are currently logged in will be signed out, including this ' +
+          'device if it was already signed in. That is deliberate: if someone else had ' +
+          'your old password, this is what ends it.'),
         banners(),
         form
       )

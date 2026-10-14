@@ -10,10 +10,10 @@
  *
  *   'builtin'   The default once deployed to Netlify. The accounts server is
  *               netlify/functions/api.mjs, right here in this repository — no
- *               signup, no key, no configuration. It sends no email, so an
- *               address is a username rather than a verified identity, and a
- *               forgotten password is recovered with a one-time code issued at
- *               sign-up.
+ *               signup, no key, no configuration. Set RESEND_API_KEY and
+ *               MAIL_FROM and it emails real password-reset links; without
+ *               them it cannot send anything, so it falls back to a one-time
+ *               recovery code issued at sign-up.
  *
  *   'supabase'  Set SUPABASE_URL and SUPABASE_ANON_KEY in the hosting
  *               environment to use a hosted identity service instead. More
@@ -29,6 +29,11 @@
  */
 window.SF_CONFIG = {
   accounts: '',
+  /* Whether a forgotten password can be reset by email. True for Supabase, and
+     for the built-in server once RESEND_API_KEY and MAIL_FROM are set. When
+     false the app offers a recovery code instead — because offering a reset
+     that can never arrive is worse than not offering one. */
+  emailReset: false,
   supabaseUrl: '',
   supabaseAnonKey: '',
 
