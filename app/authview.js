@@ -230,7 +230,11 @@
         ),
         h('p.auth__legal',
           'We store your name, email and the diploma data you enter. Nothing else, no ' +
-          'tracking, and nothing is shared. You can delete the whole account from Settings.',
+          'tracking, and nothing is shared. You can delete the whole account from Settings. ',
+          h('a', { href: '/privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy'),
+          ' · ',
+          h('a', { href: '/terms.html', target: '_blank', rel: 'noopener' }, 'Terms'),
+          '.',
           SFAuth.can().recoveryCode
             ? [' ', h('b', 'This site cannot send email'), ', so your address is just a ' +
                'username — we never check that it is yours. You will get a recovery code ' +

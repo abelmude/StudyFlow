@@ -1472,7 +1472,11 @@
       ),
       h('p.card__note', signedInUser()
         ? 'Your diploma lives in your account and is copied to this browser so it works offline.'
-        : 'Everything is stored in this browser only — nothing is uploaded.')
+        : 'Everything is stored in this browser only — nothing is uploaded.'),
+      h('p.card__note',
+        h('a.link', { href: '/privacy.html', target: '_blank', rel: 'noopener' }, 'What we store'),
+        ' · ',
+        h('a.link', { href: '/terms.html', target: '_blank', rel: 'noopener' }, 'Terms of use'))
     )));
 
     frag.appendChild(aboutCard());
