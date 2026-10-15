@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudyFlow — Privacy</title>
+<meta name="description" content="What StudyFlow stores, where it goes, and how to get rid of it.">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css">
+<script src="/boot.js"></script>
+</head>
+<body>
+
+<main class="legal">
+  <div class="wrap legal__inner">
+    <p class="eyebrow">Privacy</p>
+    <h1>What StudyFlow stores</h1>
+    <p class="lede">
+      Written to match what the software actually does. If you find a difference
+      between this page and the app's behaviour, the app is wrong and we want to
+      know.
+    </p>
+    <p class="legal__meta">Last updated <time datetime="2026-10-15">15 October 2026</time></p>
+
+    <h2>The short version</h2>
+    <ul>
+      <li>Without an account, everything stays in your own browser. Nothing is sent anywhere.</li>
+      <li>With an account, we store your email, your name if you give one, and the diploma data you enter.</li>
+      <li>There are no adverts, no trackers, no analytics and no third-party scripts of any kind.</li>
+      <li>Nothing is sold, rented or shared for marketing. There is nobody to sell it to.</li>
+      <li>You can delete the whole account, and everything in it, from Settings.</li>
+    </ul>
+
+    <h2>Using StudyFlow without an account</h2>
+    <p>
+      If you do not sign in, your subjects, deadlines, CAS entries, Extended Essay
+      notes and study hours are saved in your browser's local storage on that
+      device. They are not transmitted to us or to anyone else, and we cannot see
+      them. Clearing your browser data erases them, and we cannot get them back.
+    </p>
+
+    <h2>With an account</h2>
+    <h3>What we hold</h3>
+    <table class="legal__table">
+      <thead><tr><th>Data</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Email address</td><td>It is how you log in, and where a password-reset link is sent.</td></tr>
+        <tr><td>A scrambled form of your password</td><td>To check your password without ever storing it. See below.</td></tr>
+        <tr><td>Your name, if you enter one</td><td>Only to greet you on the dashboard. You can leave it blank.</td></tr>
+        <tr><td>Your diploma data</td><td>Subjects, deadlines, progress, CAS entries and hours, Extended Essay notes, teacher names and emails you add, and your free study hours — so they appear on your other devices.</td></tr>
+        <tr><td>Timestamps</td><td>When the account was made and when it last saved, so two devices can be reconciled.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>What we do not hold</h3>
+    <p>
+      No date of birth, no school, no location, no phone number, no payment
+      details, no contacts, no browsing history, no device fingerprint, no
+      advertising identifier. We do not keep a log of pages you visit inside the
+      app. We do not record your IP address against your account; it is used only
+      in memory, briefly, to limit repeated login attempts.
+    </p>
+
+    <h3>Your password</h3>
+    <p>
+      Your password is never stored. What is stored is a <strong>scrypt</strong>
+      hash of it with a random salt — a one-way scramble that cannot be reversed
+      into the original. Nobody operating this service can read your password,
+      recover it, or tell you what it was. That is why a forgotten password needs
+      a reset rather than a reminder.
+    </p>
+
+    <h2>Who else can see it</h2>
+    <p>
+      Two companies hold data on our behalf because the site runs on their
+      infrastructure:
+    </p>
+    <ul>
+      <li><strong>Netlify</strong> hosts the site and stores the account database.</li>
+      <li><strong>Resend</strong> delivers password-reset emails, and therefore
+          sees the email address a reset is sent to. It is used for nothing else.</li>
+    </ul>
+    <p>
+      If this deployment has been configured to use Supabase instead, Supabase
+      holds the accounts and the data in place of Netlify's storage.
+    </p>
+    <p>
+      Nobody else. No advertising network, no analytics provider, no data broker.
+      The pages load no third-party scripts at all, so no other company is in a
+      position to observe you using StudyFlow.
+    </p>
+
+    <h3>Honest limits</h3>
+    <p>
+      Your data is <strong>not end-to-end encrypted</strong>. It is protected in
+      transit and at rest by the hosting platform, and the database refuses to
+      return one account's rows to another — but whoever administers this
+      deployment can read the database. If that is not acceptable to you, use
+      StudyFlow without an account and your data never leaves your device.
+    </p>
+
+    <h2>How long it is kept</h2>
+    <p>
+      Your account data is kept until you delete it. Deleting your account from
+      Settings removes the login and the diploma data immediately and
+      permanently, including any reset link already sent. There is no archive and
+      no soft-delete, so it cannot be undone.
+    </p>
+    <p>
+      Password-reset links expire after one hour or on first use, whichever comes
+      first.
+    </p>
+
+    <h2>Your rights</h2>
+    <p>
+      Depending on where you live — and under the UK and EU GDPR in particular —
+      you have the right to see what is held about you, to correct it, to have it
+      erased, to object to processing, and to take your data elsewhere.
+      StudyFlow is built so you can exercise most of these yourself:
+    </p>
+    <ul>
+      <li><strong>See it:</strong> everything we hold is visible in the app. There is no hidden profile.</li>
+      <li><strong>Correct it:</strong> edit it in the app.</li>
+      <li><strong>Erase it:</strong> Settings → Delete my account.</li>
+      <li><strong>Take it elsewhere:</strong> your data is a plain JSON document; ask and we will send you a copy of it.</li>
+    </ul>
+    <p>
+      For anything that is not covered by a button in the app, contact whoever
+      runs this deployment using the address below.
+    </p>
+
+    <h2>Students under 18</h2>
+    <p>
+      StudyFlow is built for IB Diploma Programme students, many of whom are
+      under 18. We ask for as little as the software can function with — an email
+      address and a password — and nothing that identifies a person beyond that.
+    </p>
+    <p>
+      We do not knowingly create accounts for children under 13. In parts of the
+      EU and the UK, children under 16 need a parent or guardian's consent before
+      using a service like this; if you are under 16, please ask them first. If
+      you believe a child has an account that should not exist, contact us and it
+      will be deleted.
+    </p>
+    <p>
+      If a school deploys StudyFlow for its students, the school is responsible
+      for the lawful basis on which it does so, and should say so in its own
+      privacy notice.
+    </p>
+
+    <h2>Cookies</h2>
+    <p>
+      StudyFlow sets no cookies and uses no cookie banners, because it has
+      nothing to consent to. It uses your browser's local storage to keep your
+      diploma on your device and, if you are signed in, your login session. That
+      storage is readable only by this site, is never sent to any third party, and
+      is cleared when you log out or clear your browser data.
+    </p>
+
+    <h2>Changes</h2>
+    <p>
+      If what the app does changes, this page changes with it, and the date at the
+      top moves. Material changes to how your data is used will be announced in
+      the app rather than quietly edited in here.
+    </p>
+
+    <h2>Contact</h2>
+    <p class="legal__contact">
+      Whoever operates this deployment of StudyFlow is responsible for the data in
+      it, and is the person to contact about any of the above.
+      <strong>Replace this paragraph with your own contact address before real
+      students use the site.</strong>
+    </p>
+
+    <div class="hero__actions">
+      <a class="btn btn--primary" href="/">Back to the site</a>
+      <a class="btn btn--ghost" href="/terms.html">Terms of use</a>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

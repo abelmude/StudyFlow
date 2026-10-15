@@ -20,14 +20,23 @@
  */
 var CACHE = 'studyflow-v4';
 
+/* Everything the two pages reference, plus the pages themselves. A file loaded
+   by the HTML but missing from here is only cached opportunistically on first
+   fetch, so a first visit that goes offline mid-way loses it — which is exactly
+   how /boot.js slipped through once. The test suite now checks this list
+   against the script and stylesheet tags rather than trusting it. */
 var SHELL = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/boot.js',
+  '/privacy.html',
+  '/terms.html',
   '/app/',
   '/app/index.html',
   '/app/app.css',
+  '/app/boot.js',
   '/app/config.js',
   '/app/dom.js',
   '/app/store.js',

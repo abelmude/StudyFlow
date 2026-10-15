@@ -72,16 +72,37 @@ const MAIL_FROM = process.env.MAIL_FROM || '';
 const mailEnabled = () => !!(MAIL_KEY && MAIL_FROM);
 
 /**
- * The site's own address.
+ * The site's own address, for building a reset link. Null if it cannot be
+ * established safely.
  *
- * Taken from the environment, never from the request — a reset link built from
- * a client-supplied host would let anyone have the link point at their own
- * server, turning "forgot password" into a way to harvest other people's reset
- * tokens. Netlify sets URL to the site's primary address.
+ * It comes from the environment and nowhere else. `req.url` is assembled from
+ * the Host header, which the caller controls completely, so deriving the link
+ * from it would mean this:
+ *
+ *     POST /api/auth/forgot
+ *     Host: evil.example.com
+ *     {"email": "victim@school.org"}
+ *
+ * The victim then gets a genuine email, from the real sender, containing
+ * https://evil.example.com/app/#reset_token=… — and clicking it hands a live
+ * token to the attacker. Nothing about the message looks wrong, so no amount
+ * of care on the student's part helps.
+ *
+ * Netlify sets URL at runtime, so this normally resolves on the first branch.
+ * When it does not, the only request origin trusted is a local one, for
+ * development. Anything else returns null and no mail is sent: a reset link
+ * that fails to arrive is a nuisance, one that arrives pointing somewhere else
+ * is an account takeover.
  */
 function siteUrl(req) {
-  return (process.env.URL || process.env.DEPLOY_PRIME_URL || new URL(req.url).origin)
-    .replace(/\/+$/, '');
+  const fromEnv = (process.env.URL || process.env.DEPLOY_PRIME_URL || '').trim();
+  if (fromEnv) return fromEnv.replace(/\/+$/, '');
+
+  const origin = new URL(req.url).origin;
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return origin;
+
+  console.error('studyflow: no trusted site URL (set URL in the environment) — refusing to send a reset link');
+  return null;
 }
 
 async function sendMail({ to, subject, text, html }) {
@@ -165,6 +186,14 @@ function emailKey(email) {
 function looksLikeEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
 }
+
+/* One rule for what counts as a password, applied at every door. The upper
+   bound matters as much as the lower: scrypt hashes whatever it is given, and
+   every reset and change endpoint takes one, not just sign-up. */
+const okPassword = (p) => typeof p === 'string' && p.length >= MIN_PASSWORD && p.length <= 512;
+const passwordProblem = (p) => fail(400, String(p).length > 512
+  ? 'That password is too long.'
+  : `Use a password of at least ${MIN_PASSWORD} characters.`);
 
 /* ---------- Password and recovery-code hashing ---------- */
 
@@ -335,10 +364,18 @@ async function clearRateLimit(bucket, key) {
   await rl.delete(id).catch(() => { /* nothing to clear */ });
 }
 
+/**
+ * Who is calling, for the per-address limits.
+ *
+ * Only sources the platform sets are trusted. X-Forwarded-For used to be the
+ * last fallback, and the caller writes that header themselves — rotating it
+ * per request turned every per-address limit off. Without a platform value the
+ * requests share one bucket, which is strict rather than permissive; the
+ * per-account limits do not depend on this at all.
+ */
 function clientAddress(req, context) {
   return (context && context.ip) ||
-    (req.headers.get('x-nf-client-connection-ip')) ||
-    (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() ||
+    req.headers.get('x-nf-client-connection-ip') ||
     'unknown';
 }
 
@@ -366,10 +403,7 @@ async function signup(req, context) {
   const name = String(b.name || '').trim().slice(0, 80);
 
   if (!looksLikeEmail(email)) return fail(400, 'That does not look like a valid email address.');
-  if (password.length < MIN_PASSWORD) {
-    return fail(400, `Use a password of at least ${MIN_PASSWORD} characters.`);
-  }
-  if (password.length > 512) return fail(400, 'That password is too long.');
+  if (!okPassword(password)) return passwordProblem(password);
 
   /* Sign-up is rate limited per address too: without it, this endpoint is a
      way to fill the store. */
@@ -381,10 +415,22 @@ async function signup(req, context) {
 
   const existing = await users.get(key, { type: 'json' });
   if (existing) {
-    /* Saying "that email is taken" would turn sign-up into a way to find out
-       who has an account. The client is written to show the same screen for
-       both outcomes. */
-    return fail(409, 'That email cannot be used to create an account. If it is yours, log in instead.');
+    /* KNOWN LEAK, and a deliberate one rather than an oversight.
+     *
+     * This answer differs from the one a free address gets, so anyone can use
+     * sign-up to learn whether a given email has a StudyFlow account. Closing
+     * it properly means making every sign-up go through an emailed
+     * confirmation, so that both outcomes end on the same "check your inbox"
+     * screen — which costs a verified address nothing and gains one, but puts
+     * a mail round trip between a student and their first deadline.
+     *
+     * What is leaked is bounded: that an address is registered here. No name,
+     * no data, nothing about the diploma. Login and the reset endpoint both
+     * answer identically either way, so this is the only place it shows.
+     *
+     * The wording is kept neutral so the message itself asserts nothing.
+     */
+    return fail(409, 'That email cannot be used to create a new account. If it is yours, log in instead.');
   }
 
   /* A code is only issued when there is no email route — otherwise it is one
@@ -489,6 +535,12 @@ async function forgot(req, context) {
   const user = await store('studyflow-users').get(emailKey(email), { type: 'json' });
   if (!user) return same();
 
+  /* Established before anything is issued: with no trusted address there is
+     nowhere safe to point the link, and a token that is created but never
+     delivered is just one more live credential lying around. */
+  const base = siteUrl(req);
+  if (!base) return same();
+
   /* 32 random bytes, so the token is unguessable on its own and does not need
      a slow hash — SHA-256 of it is enough to avoid storing the live value. */
   const token = crypto.randomBytes(32).toString('base64url');
@@ -497,7 +549,7 @@ async function forgot(req, context) {
     { userId: user.id, emailKey: emailKey(email), expiresAt: Date.now() + RESET_MS }
   );
 
-  const link = `${siteUrl(req)}/app/#reset_token=${token}`;
+  const link = `${base}/app/#reset_token=${token}`;
   const { text, html } = resetEmail(link, user.name);
 
   try {
@@ -517,9 +569,7 @@ async function reset(req, context) {
   if (!b) return fail(400, 'That request could not be read.');
 
   const password = String(b.password || '');
-  if (password.length < MIN_PASSWORD) {
-    return fail(400, `Use a password of at least ${MIN_PASSWORD} characters.`);
-  }
+  if (!okPassword(password)) return passwordProblem(password);
 
   const perAddress = await rateLimit('reset-ip', clientAddress(req, context), 20, 60 * 60 * 1000);
   if (!perAddress.ok) return fail(429, 'Too many attempts from here. Try again later.');
@@ -563,9 +613,7 @@ async function recover(req, context) {
   const code = tidyCode(b.recoveryCode);
   const password = String(b.password || '');
 
-  if (password.length < MIN_PASSWORD) {
-    return fail(400, `Use a password of at least ${MIN_PASSWORD} characters.`);
-  }
+  if (!okPassword(password)) return passwordProblem(password);
 
   /* Tighter than login: a recovery code is the whole account. */
   const perAccount = await rateLimit('recover', email, 5, 60 * 60 * 1000);
@@ -609,9 +657,7 @@ async function changePassword(req) {
   if (!b) return fail(400, 'That request could not be read.');
 
   const password = String(b.password || '');
-  if (password.length < MIN_PASSWORD) {
-    return fail(400, `Use a password of at least ${MIN_PASSWORD} characters.`);
-  }
+  if (!okPassword(password)) return passwordProblem(password);
 
   user.password = await hash(password);
   user.tokenVersion = (user.tokenVersion || 1) + 1;   // sign other devices out
