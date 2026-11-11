@@ -33,6 +33,7 @@ var SHELL = [
   '/boot.js',
   '/privacy.html',
   '/terms.html',
+  '/cookies.html',
   '/app/',
   '/app/index.html',
   '/app/app.css',

@@ -1245,6 +1245,7 @@
         h('div.msg__acts',
           h('a.btn.btn--primary' + (d.to ? '' : '.is-off'), {
             href: d.to ? mailto : null,
+            'aria-disabled': d.to ? null : 'true',
             onclick: function () {
               if (!d.to) return false;
               SF.markNotified(t.id);
@@ -1457,6 +1458,8 @@
           }
         }, 'Load example account'),
 
+        h('button.btn.btn--ghost', { type: 'button', onclick: downloadData }, 'Download my data'),
+
         h('button.btn.btn--danger', {
           type: 'button',
           onclick: function () {
@@ -1584,6 +1587,19 @@
         h('button.btn.btn--danger', { type: 'button', onclick: deleteAccount }, 'Delete my account')
       )
     ));
+  }
+
+  /* Everything StudyFlow holds about you is this one document, so a copy of
+     it is a complete export. Nothing leaves the browser to make it. */
+  function downloadData() {
+    var blob = new Blob([JSON.stringify(SF.state, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = h('a', { href: url, download: 'studyflow-' + SF.iso(SF.today()) + '.json' });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    toast('Downloaded a copy of your data');
   }
 
   function changePassword() {

@@ -180,6 +180,22 @@
     var pw2 = field({ id: 'au-pw2', label: 'Password again', type: 'password',
       autocomplete: 'new-password' });
 
+    /* Consent and age, asked once, unticked by default. Accounts are the only
+       place StudyFlow holds personal data, so this is the point to ask. */
+    var agreeBox = h('input#au-agree', {
+      type: 'checkbox', required: true, checked: !!ctx.agreed,
+      onchange: function (e) { ctx.agreed = e.target.checked; }
+    });
+    var agree = h('label.auth__confirm', { 'for': 'au-agree' },
+      agreeBox,
+      h('span',
+        'I am 13 or older and I agree to the ',
+        h('a', { href: '/terms.html', target: '_blank', rel: 'noopener' }, 'Terms'),
+        ' and ',
+        h('a', { href: '/privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
+        '. If I am under 16, a parent or guardian has said yes too.')
+    );
+
     var submit = h('button.btn.btn--primary.btn--lg.onb__primary', { type: 'submit' }, 'Create my account');
     submit.dataset.label = 'Create my account';
 
@@ -188,7 +204,11 @@
         e.preventDefault();
         ctx.name = name.input.value;
         ctx.email = email.input.value.trim();
+        ctx.agreed = agreeBox.checked;
 
+        if (!agreeBox.checked) {
+          return go('signup', { error: 'Please confirm your age and that you agree to the Terms and Privacy policy.', name: ctx.name, email: ctx.email });
+        }
         if (pw.input.value.length < MIN_PASSWORD) {
           return go('signup', { error: 'Use a password of at least ' + MIN_PASSWORD + ' characters.', name: ctx.name });
         }
@@ -213,7 +233,7 @@
         });
       }
     },
-      name.el, email.el, pw.el, pw2.el,
+      name.el, email.el, pw.el, pw2.el, agree,
       h('div.auth__submit', submit)
     );
 
