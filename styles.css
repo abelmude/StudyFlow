@@ -7,10 +7,14 @@
 :root {
   --accent: #1b3a5c;
   --accent-deep: #12293f;
+  /* Fill behind white text. Same as --accent in light; darker in dark mode,
+     where --accent is a light blue meant for text and white on it fails contrast. */
+  --accent-fill: #1b3a5c;
+  --accent-fill-deep: #12293f;
   --accent-soft: #e4eaf0;
 
   --clear: #156f52;
-  --soon: #9a5b00;
+  --soon: #7f5300;
   --late: #a81f12;
 
   --cat-1: #44607d;
@@ -25,7 +29,7 @@
   --surface-2: #f7f9f8;
   --text: #0f1518;
   --muted: #4a5861;
-  --faint: #627178;
+  --faint: #56656b;
   --line: #d8e0de;
 
   --shadow-sm: none;
@@ -51,6 +55,8 @@
 [data-theme="dark"] {
   --accent: #8fb4d6;
   --accent-deep: #b4cde3;
+  --accent-fill: #2f5a82;
+  --accent-fill-deep: #24496b;
   --accent-soft: #1b2b38;
 
   --clear: #4cc79b;
@@ -69,7 +75,7 @@
   --surface-2: #182127;
   --text: #e8eeec;
   --muted: #a3b2b2;
-  --faint: #76888c;
+  --faint: #8d9ba0;
   --line: #27343a;
 
   --shadow-sm: none;
@@ -143,10 +149,10 @@ button, input { font: inherit; color: inherit; }
 .btn--sm { padding: 9px 16px; font-size: .875rem; }
 
 .btn--primary {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff; box-shadow: none;
 }
-.btn--primary:hover { background: var(--accent-deep); }
+.btn--primary:hover { background: var(--accent-fill-deep); }
 
 .btn--ghost { background: var(--surface); color: var(--text); border-color: var(--line); box-shadow: var(--shadow-sm); }
 .btn--ghost:hover { border-color: var(--accent); color: var(--accent); }
@@ -178,7 +184,7 @@ button, input { font: inherit; color: inherit; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; letter-spacing: -.02em; }
 .brand__mark {
   display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
-  background: var(--accent); color: #fff;
+  background: var(--accent-fill); color: #fff;
   box-shadow: none;
 }
 .brand__mark svg { width: 19px; height: 19px; }
@@ -364,7 +370,7 @@ button, input { font: inherit; color: inherit; }
 .i-white  { background: rgba(255, 255, 255, .18); color: #fff; }
 
 .card--accent {
-  background: var(--accent); color: #fff; border-color: transparent;
+  background: var(--accent-fill); color: #fff; border-color: transparent;
   box-shadow: none;
 }
 .card--accent p { color: rgba(255, 255, 255, .88); }
@@ -436,7 +442,7 @@ button, input { font: inherit; color: inherit; }
   border: 1px solid var(--line); color: var(--muted);
 }
 .cal i:empty { background: transparent; border-color: transparent; }
-.cal i.dim { opacity: .45; }
+.cal i.dim { color: var(--faint); }
 .cal i.on { background: color-mix(in srgb, var(--indigo) 16%, transparent); border-color: color-mix(in srgb, var(--indigo) 34%, transparent); color: var(--indigo); }
 .cal i.hot { background: color-mix(in srgb, var(--red) 13%, transparent); border-color: color-mix(in srgb, var(--red) 32%, transparent); color: var(--red); }
 .cal__key { display: flex; gap: 16px; margin-top: 4px; font-size: .74rem; color: var(--muted); }
@@ -465,7 +471,7 @@ button, input { font: inherit; color: inherit; }
 }
 .step__no {
   display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
-  background: var(--accent); color: #fff;
+  background: var(--accent-fill); color: #fff;
   font-weight: 800; margin-bottom: 16px; box-shadow: none;
 }
 .step h3 { margin-bottom: 8px; }
@@ -488,7 +494,7 @@ button, input { font: inherit; color: inherit; }
 }
 .chip:hover { color: var(--text); border-color: var(--indigo); }
 .chip.is-active {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff; border-color: transparent;
 }
 .demo__count { margin-left: auto; font-size: .82rem; color: var(--faint); font-weight: 600; }
@@ -559,28 +565,19 @@ button, input { font: inherit; color: inherit; }
 /* ---------- CTA ---------- */
 .cta {
   padding: clamp(64px, 9vw, 104px) 0;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff;
 }
 .cta__inner { text-align: center; max-width: 660px; margin-inline: auto; }
 .cta__inner h2 { color: #fff; }
 .cta__inner > p { margin-top: 14px; color: rgba(255, 255, 255, .9); font-size: 1.05rem; }
 
-.cta__form { display: flex; gap: 10px; max-width: 470px; margin: 28px auto 0; flex-wrap: wrap; }
-.cta__form input {
-  flex: 1; min-width: 200px; padding: 13px 20px; border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .14);
-  color: #fff; font-size: .95rem;
-}
-.cta__form input::placeholder { color: rgba(255, 255, 255, .65); }
-.cta__form input:focus-visible { outline-color: #fff; background: rgba(255, 255, 255, .2); }
+.cta__form { display: flex; gap: 10px; justify-content: center; max-width: 470px; margin: 28px auto 0; flex-wrap: wrap; }
 .cta__form .btn--primary {
-  background: #fff; color: var(--indigo-600); box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  background: #fff; color: var(--accent-fill); box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
 }
 .cta__form .btn--primary:hover { box-shadow: 0 10px 26px rgba(0, 0, 0, .24); }
 
-.cta__msg { min-height: 22px; margin-top: 14px; font-size: .89rem; font-weight: 600; }
-.cta__msg.is-err { color: #ffd7d7; }
 .cta__fine { margin-top: 10px; font-size: .8rem; color: rgba(255, 255, 255, .72); }
 
 /* ---------- Footer ---------- */
@@ -588,7 +585,7 @@ button, input { font: inherit; color: inherit; }
 .footer__inner { display: grid; grid-template-columns: 1.2fr 2fr; gap: 40px; padding-bottom: 40px; }
 .footer__brand p { margin-top: 10px; font-size: .9rem; color: var(--muted); max-width: 34ch; }
 .footer__cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
-.footer__cols h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin-bottom: 12px; }
+.footer__cols h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin-bottom: 12px; }
 .footer__cols a { display: block; font-size: .9rem; color: var(--muted); padding: 4px 0; transition: color .18s; }
 .footer__cols a:hover { color: var(--indigo); }
 .footer__base { border-top: 1px solid var(--line); padding-block: 20px; }
@@ -671,8 +668,18 @@ button, input { font: inherit; color: inherit; }
 .legal__inner .lede { margin-bottom: 8px; }
 .legal__inner ul { margin: 0 0 16px 20px; padding: 0; }
 .legal__inner li { margin-bottom: 8px; line-height: 1.65; }
-.legal__inner a { color: var(--indigo); }
+.legal__inner a:not(.btn) { color: var(--indigo); text-decoration: underline; text-underline-offset: 2px; }
 .legal__meta { font-size: .85rem; color: var(--faint); }
+.legal__table { overflow-x: auto; margin: 0 0 18px; }
+.legal__table table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.legal__table th, .legal__table td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); line-height: 1.55; }
+.legal__table th { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.legal__table code { font-size: .82rem; white-space: nowrap; }
+.legal__who { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0 0 16px; }
+.legal__who dt { font-weight: 700; }
+.legal__who dd { margin: 0; }
+/* Details the site owner still has to fill in. Loud on purpose. */
+.legal__todo { background: #fff3c4; color: #5c4300; padding: 0 4px; border-radius: 4px; font-weight: 700; }
 
 .legal__table { width: 100%; border-collapse: collapse; margin: 6px 0 18px; font-size: .92rem; }
 .legal__table th, .legal__table td {

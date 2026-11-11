@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudyFlow — Cookies and storage</title>
+<meta name="description" content="Every piece of data StudyFlow keeps in your browser, what it is for, and how to clear it.">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css">
+<script src="/boot.js"></script>
+</head>
+<body>
+
+<main class="legal">
+  <div class="wrap legal__inner">
+    <p class="eyebrow">Cookies</p>
+    <h1>Cookies and browser storage</h1>
+    <p class="lede">
+      StudyFlow sets no cookies. It does keep a few things in your browser so the
+      app works, and this page lists every one of them.
+    </p>
+    <p class="legal__meta">Last updated <time datetime="2026-11-11">11 November 2026</time></p>
+
+    <h2>The short version</h2>
+    <ul>
+      <li>No cookies, no trackers, no analytics, no advertising, no third-party scripts.</li>
+      <li>Everything below is stored only in your own browser, read only by this site, and never sent to another company.</li>
+      <li>All of it is either needed for the app to work or something you chose, such as dark mode. That is why there is no cookie banner: there is nothing optional to agree to.</li>
+    </ul>
+
+    <h2>What is stored in your browser</h2>
+    <div class="legal__table">
+      <table>
+        <thead>
+          <tr><th scope="col">Name</th><th scope="col">What it is for</th><th scope="col">How long</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>studyflow-data-v1</code></td>
+            <td>Your subjects, deadlines, CAS entries, EE notes and study hours, so the app works on this device and offline.</td>
+            <td>Until you use Start over, log out of an account, or clear your browser data.</td>
+          </tr>
+          <tr>
+            <td><code>studyflow-auth-v1</code></td>
+            <td>Your login session, only if you have an account. Without it you would have to log in on every visit.</td>
+            <td>Until you log out.</td>
+          </tr>
+          <tr>
+            <td><code>studyflow-sync-v1</code></td>
+            <td>A short fingerprint of what was last saved to your account, so the app knows whether there are changes to upload.</td>
+            <td>Until you log out.</td>
+          </tr>
+          <tr>
+            <td><code>studyflow-signed-out</code></td>
+            <td>Remembers that you logged out of a device-only diploma, so the start screen shows instead of your data.</td>
+            <td>Until you open the diploma again.</td>
+          </tr>
+          <tr>
+            <td><code>studyflow-local-only</code></td>
+            <td>Remembers that you chose to use StudyFlow without an account, so you are not asked again.</td>
+            <td>Until you clear your browser data.</td>
+          </tr>
+          <tr>
+            <td><code>studyflow-theme</code></td>
+            <td>Light or dark mode, if you picked one.</td>
+            <td>Until you clear your browser data.</td>
+          </tr>
+          <tr>
+            <td>Offline copy of the site</td>
+            <td>The site's own pages, styles and scripts, saved by a service worker so StudyFlow opens without a connection. It holds no personal data.</td>
+            <td>Replaced each time the site updates.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>How to clear it</h2>
+    <ul>
+      <li><strong>Without an account:</strong> Settings → Start over deletes your diploma from this browser.</li>
+      <li><strong>With an account:</strong> logging out removes your diploma and your session from this browser. Settings → Delete my account removes it from our side too.</li>
+      <li><strong>Everything at once:</strong> clear this site's data in your browser settings.</li>
+    </ul>
+
+    <h2>If this changes</h2>
+    <p>
+      If StudyFlow ever adds anything optional, such as analytics, it will ask you
+      first, with a choice that is as easy to refuse as to accept, and it will be
+      listed here before it goes live.
+    </p>
+
+    <p>
+      More detail on what is held with an account, and who to contact, is on the
+      <a href="/privacy.html">privacy page</a>.
+    </p>
+
+    <div class="hero__actions">
+      <a class="btn btn--primary" href="/">Back to the site</a>
+      <a class="btn btn--ghost" href="/privacy.html">Privacy</a>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

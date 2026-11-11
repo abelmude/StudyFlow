@@ -13,11 +13,15 @@
   /* Brand — interactive only, never used to signal status. */
   --accent: #1b3a5c;
   --accent-deep: #12293f;
+  /* Fill behind white text. Same as --accent in light; darker in dark mode,
+     where --accent is a light blue meant for text and white on it fails contrast. */
+  --accent-fill: #1b3a5c;
+  --accent-fill-deep: #12293f;
   --accent-soft: #e4eaf0;
 
   /* Status — reserved meanings. */
   --clear: #156f52;
-  --soon: #9a5b00;
+  --soon: #7f5300;
   --late: #a81f12;
 
   /* Subject-group tints, held well below the status colours in saturation so
@@ -35,7 +39,7 @@
   --side: #fbfcfc;
   --text: #0f1518;
   --muted: #4a5861;
-  --faint: #627178;
+  --faint: #56656b;
   --line: #d8e0de;
   --line-strong: #b9c6c3;
 
@@ -61,6 +65,8 @@
 [data-theme="dark"] {
   --accent: #8fb4d6;
   --accent-deep: #b4cde3;
+  --accent-fill: #2f5a82;
+  --accent-fill-deep: #24496b;
   --accent-soft: #1b2b38;
 
   --clear: #4cc79b;
@@ -79,7 +85,7 @@
   --side: #101719;
   --text: #e8eeec;
   --muted: #a3b2b2;
-  --faint: #76888c;
+  --faint: #8d9ba0;
   --line: #27343a;
   --line-strong: #3a4a50;
 
@@ -150,16 +156,16 @@ svg { width: 20px; height: 20px; flex: none; }
 .btn--sm { padding: 8px 16px; font-size: .86rem; }
 
 .btn--primary {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff; box-shadow: none;
 }
-.btn--primary:hover { background: var(--accent-deep); }
+.btn--primary:hover { background: var(--accent-fill-deep); }
 
 .btn--ghost { background: var(--surface); border-color: var(--line); box-shadow: var(--shadow-sm); }
 .btn--ghost:hover { border-color: var(--indigo); color: var(--indigo); }
 
-.btn--white { background: #fff; color: var(--indigo); }
-.btn--white:hover { background: var(--accent-soft); }
+.btn--white { background: #fff; color: var(--accent-fill); }
+.btn--white:hover { background: #e4eaf0; }
 .btn--ghostw { background: rgba(255, 255, 255, .16); color: #fff; border-color: rgba(255, 255, 255, .34); }
 .btn--ghostw:hover { background: rgba(255, 255, 255, .26); }
 
@@ -198,7 +204,7 @@ svg { width: 20px; height: 20px; flex: none; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.06rem; }
 .brand__mark {
   display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px;
-  background: var(--accent); color: #fff;
+  background: var(--accent-fill); color: #fff;
   box-shadow: none;
 }
 .brand__mark svg { width: 18px; height: 18px; }
@@ -303,12 +309,12 @@ svg { width: 20px; height: 20px; flex: none; }
   background: color-mix(in srgb, var(--amber) 11%, transparent);
   border-color: color-mix(in srgb, var(--amber) 30%, transparent); color: var(--amber);
 }
-.alert span { color: inherit; opacity: .85; }
+.alert span { color: inherit; }
 
 /* ---------- Due-next hero ---------- */
 .next {
   padding: 24px; border-radius: var(--r-lg); color: #fff;
-  background: var(--accent);
+  background: var(--accent-fill);
   box-shadow: none;
   display: grid; gap: 10px;
 }
@@ -333,7 +339,7 @@ svg { width: 20px; height: 20px; flex: none; }
   white-space: nowrap; letter-spacing: .01em;
 }
 .next .chip { background: rgba(255, 255, 255, .18); color: #fff; border-color: rgba(255, 255, 255, .28); }
-.chip--urgent { background: rgba(255, 255, 255, .95) !important; color: var(--indigo) !important; border-color: transparent !important; }
+.chip--urgent { background: rgba(255, 255, 255, .95) !important; color: var(--accent-fill) !important; border-color: transparent !important; }
 
 /* Subject categories draw from the muted cat-* tints only. Green, amber and
    red are reserved for status, so a category can never be mistaken for a
@@ -390,7 +396,9 @@ svg { width: 20px; height: 20px; flex: none; }
   transition: background .16s, border-color .16s;
 }
 .row:hover { background: var(--surface-2); border-color: var(--line); }
-.row.is-done { opacity: .52; }
+/* Done rows are marked by the tick and the strike-through, not by fading the
+   text, which took it below readable contrast. */
+.row.is-done .row__title { color: var(--muted); }
 .row.is-done .row__title { text-decoration: line-through; }
 
 .row__main { flex: 1; min-width: 0; display: grid; gap: 3px; }
@@ -441,7 +449,7 @@ svg { width: 20px; height: 20px; flex: none; }
 }
 .fchip:hover { color: var(--text); border-color: var(--indigo); }
 .fchip.is-active {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff; border-color: transparent;
 }
 
@@ -657,7 +665,7 @@ svg { width: 20px; height: 20px; flex: none; }
   transition: background .16s, color .16s;
 }
 .seg__btn:hover { color: var(--text); }
-.seg__btn.is-on { background: var(--accent); color: #fff; }
+.seg__btn.is-on { background: var(--accent-fill); color: #fff; }
 
 /* ---------- Preset picker (grouped, searchable course list) ---------- */
 .picker { display: grid; gap: 10px; margin-top: 14px; }
@@ -748,7 +756,7 @@ body.is-onboarding .shell { display: none; }
 .onb__brand { display: flex; align-items: center; gap: 11px; }
 .onb__mark {
   display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px;
-  background: var(--accent); color: #fff;
+  background: var(--accent-fill); color: #fff;
   box-shadow: none;
 }
 .onb__mark svg { width: 22px; height: 22px; }
@@ -794,7 +802,7 @@ body.is-onboarding .shell { display: none; }
 
 .onb__hero {
   padding: 16px; border-radius: var(--r-md); color: #fff;
-  background: var(--accent); display: grid; gap: 7px;
+  background: var(--accent-fill); display: grid; gap: 7px;
 }
 .onb__herolabel { font-size: .64rem; font-weight: 800; letter-spacing: .1em; opacity: .85; }
 .onb__herotitle { font-weight: 700; font-size: .98rem; }
@@ -847,7 +855,7 @@ body.is-onboarding .shell { display: none; }
   background: var(--surface); border: 1px solid var(--line); color: var(--muted);
 }
 .onb__choiceicon.is-primary {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff; border-color: transparent;
 }
 

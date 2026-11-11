@@ -242,27 +242,6 @@
   render();
   }
 
-  /* ---------- Signup form ---------- */
-  var form = document.getElementById('signup');
-  var msg = document.getElementById('signup-msg');
-
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var input = document.getElementById('email');
-    var value = input.value.trim();
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
-      msg.textContent = 'That email address does not look right — mind checking it?';
-      msg.classList.add('is-err');
-      input.focus();
-      return;
-    }
-
-    msg.classList.remove('is-err');
-    msg.textContent = 'Thanks! This is a demo site, so nothing was sent — but you are on the list in spirit.';
-    form.reset();
-  });
-
   /* ---------- What this deployment actually offers ----------
      Accounts exist only if a backend was configured at build time, so the page
      reads the app's own config rather than making a claim that might be false
